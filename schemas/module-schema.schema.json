@@ -1,0 +1,391 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apcore.dev/schemas/module-schema.schema.json",
+  "title": "apcore Module Schema Meta-Schema",
+  "description": "Meta-schema for validating *.schema.yaml module schema definition files. Ensures module schemas conform to JSON Schema Draft 2020-12 with apcore extensions (x-* properties). Based on PROTOCOL_SPEC Section 4.",
+  "type": "object",
+  "required": ["module_id", "description", "input_schema", "output_schema"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Schema reference URL.",
+      "examples": ["https://apcore.dev/schema/v1"]
+    },
+    "version": {
+      "type": "string",
+      "description": "Schema version following semantic versioning.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?(\\+[a-zA-Z0-9.]+)?$",
+      "examples": ["1.0.0", "1.1.0"]
+    },
+    "module_id": {
+      "type": "string",
+      "description": "The Canonical ID of the module this schema belongs to. MUST match the EBNF: segment ('.' segment)*, where segment = [a-z][a-z0-9_]*.",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+      "maxLength": 128,
+      "examples": ["executor.validator.db_params", "executor.email.send_email"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief module description (≤200 chars). Used by AI for quick module discovery and matching. Should explain what the module does, when to use it, and key characteristics.",
+      "minLength": 10,
+      "maxLength": 200
+    },
+    "documentation": {
+      "type": "string",
+      "description": "Detailed module documentation (optional, ≤5000 chars). Supports Markdown. Includes usage scenarios, configuration requirements, constraints, and important notes. Loaded by AI during invocation decision phase.",
+      "minLength": 1,
+      "maxLength": 5000
+    },
+    "input_schema": {
+      "$ref": "#/$defs/JSONSchemaObject",
+      "description": "Input schema definition. MUST be a valid JSON Schema Draft 2020-12 object with type 'object'. SHOULD set additionalProperties to false."
+    },
+    "output_schema": {
+      "$ref": "#/$defs/JSONSchemaObject",
+      "description": "Output schema definition. MUST be a valid JSON Schema Draft 2020-12 object with type 'object'."
+    },
+    "error_schema": {
+      "$ref": "#/$defs/ErrorSchemaObject",
+      "description": "Optional error schema definition. Describes the structure of errors this module may return."
+    },
+    "definitions": {
+      "type": "object",
+      "description": "Shared type definitions that can be referenced via $ref within input_schema and output_schema.",
+      "additionalProperties": {
+        "$ref": "#/$defs/JSONSchemaDefinition"
+      }
+    }
+  },
+  "$defs": {
+    "JSONSchemaObject": {
+      "type": "object",
+      "description": "A JSON Schema Draft 2020-12 object definition with apcore extensions. Represents the top-level input or output schema.",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "object",
+          "description": "Top-level schema type. MUST be 'object' for input_schema and output_schema."
+        },
+        "properties": {
+          "type": "object",
+          "description": "Property definitions for the object.",
+          "additionalProperties": {
+            "$ref": "#/$defs/JSONSchemaDefinition"
+          }
+        },
+        "required": {
+          "type": "array",
+          "description": "List of required property names.",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "additionalProperties": {
+          "description": "Whether additional properties are allowed. SHOULD be false for input_schema.",
+          "oneOf": [
+            { "type": "boolean" },
+            { "$ref": "#/$defs/JSONSchemaDefinition" }
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "x-llm-description": {
+          "type": "string",
+          "description": "Extended description for LLM consumption. More detailed than 'description', can include usage notes, constraints, and hints."
+        }
+      }
+    },
+    "JSONSchemaDefinition": {
+      "description": "A JSON Schema property definition supporting Draft 2020-12 keywords and apcore x-* extensions.",
+      "oneOf": [
+        { "$ref": "#/$defs/JSONSchemaPropertyObject" },
+        { "$ref": "#/$defs/JSONSchemaRef" },
+        { "type": "boolean" }
+      ]
+    },
+    "JSONSchemaPropertyObject": {
+      "type": "object",
+      "description": "A schema property definition with full JSON Schema Draft 2020-12 support and apcore extensions.",
+      "properties": {
+        "type": {
+          "description": "JSON Schema type. Can be a single type or an array for union types (e.g., ['string', 'null']).",
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": ["string", "integer", "number", "boolean", "object", "array", "null"]
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["string", "integer", "number", "boolean", "object", "array", "null"]
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          ]
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable property description. All properties SHOULD have a description."
+        },
+        "default": {
+          "description": "Default value for this property."
+        },
+        "const": {
+          "description": "Constant value constraint."
+        },
+        "enum": {
+          "type": "array",
+          "description": "Allowed values enumeration.",
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "format": {
+          "type": "string",
+          "description": "Standard JSON Schema format hint (e.g., date-time, date, email, uri, uuid).",
+          "examples": ["date-time", "date", "time", "email", "uri", "uuid", "ipv4", "ipv6"]
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Regular expression pattern for string validation."
+        },
+        "minLength": {
+          "type": "integer",
+          "description": "Minimum string length (Unicode code points).",
+          "minimum": 0
+        },
+        "maxLength": {
+          "type": "integer",
+          "description": "Maximum string length (Unicode code points).",
+          "minimum": 0
+        },
+        "minimum": {
+          "type": "number",
+          "description": "Minimum numeric value (inclusive)."
+        },
+        "maximum": {
+          "type": "number",
+          "description": "Maximum numeric value (inclusive)."
+        },
+        "exclusiveMinimum": {
+          "type": "number",
+          "description": "Exclusive minimum numeric value."
+        },
+        "exclusiveMaximum": {
+          "type": "number",
+          "description": "Exclusive maximum numeric value."
+        },
+        "multipleOf": {
+          "type": "number",
+          "description": "Value must be a multiple of this number.",
+          "exclusiveMinimum": 0
+        },
+        "minItems": {
+          "type": "integer",
+          "description": "Minimum number of array items.",
+          "minimum": 0
+        },
+        "maxItems": {
+          "type": "integer",
+          "description": "Maximum number of array items.",
+          "minimum": 0
+        },
+        "uniqueItems": {
+          "type": "boolean",
+          "description": "Whether array items must be unique."
+        },
+        "items": {
+          "$ref": "#/$defs/JSONSchemaDefinition",
+          "description": "Schema for array items."
+        },
+        "properties": {
+          "type": "object",
+          "description": "Nested object properties.",
+          "additionalProperties": {
+            "$ref": "#/$defs/JSONSchemaDefinition"
+          }
+        },
+        "required": {
+          "type": "array",
+          "description": "Required property names for nested objects.",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "additionalProperties": {
+          "description": "Schema for additional properties.",
+          "oneOf": [
+            { "type": "boolean" },
+            { "$ref": "#/$defs/JSONSchemaDefinition" }
+          ]
+        },
+        "oneOf": {
+          "type": "array",
+          "description": "Value must match exactly one of these schemas.",
+          "items": {
+            "$ref": "#/$defs/JSONSchemaDefinition"
+          },
+          "minItems": 1
+        },
+        "anyOf": {
+          "type": "array",
+          "description": "Value must match at least one of these schemas.",
+          "items": {
+            "$ref": "#/$defs/JSONSchemaDefinition"
+          },
+          "minItems": 1
+        },
+        "allOf": {
+          "type": "array",
+          "description": "Value must match all of these schemas.",
+          "items": {
+            "$ref": "#/$defs/JSONSchemaDefinition"
+          },
+          "minItems": 1
+        },
+        "not": {
+          "$ref": "#/$defs/JSONSchemaDefinition",
+          "description": "Value must NOT match this schema."
+        },
+        "if": {
+          "$ref": "#/$defs/JSONSchemaDefinition",
+          "description": "Conditional schema: if this matches..."
+        },
+        "then": {
+          "$ref": "#/$defs/JSONSchemaDefinition",
+          "description": "...then this must also match."
+        },
+        "else": {
+          "$ref": "#/$defs/JSONSchemaDefinition",
+          "description": "...otherwise this must match."
+        },
+        "$ref": {
+          "type": "string",
+          "description": "JSON Schema $ref reference. Supports local references (#/definitions/...), relative file references (./common/error.schema.yaml#/...), and canonical references (apcore://...).",
+          "examples": [
+            "#/definitions/Address",
+            "./common/error.schema.yaml#/definitions/ErrorDetail",
+            "apcore://common.types.error/ErrorDetail"
+          ]
+        },
+        "nullable": {
+          "type": "boolean",
+          "description": "Whether this field accepts null values. Shorthand for type: ['<type>', 'null']."
+        },
+        "x-llm-description": {
+          "type": "string",
+          "description": "apcore extension: Extended description for LLM consumption. More detailed than 'description'. Can include usage instructions, constraints, and warnings that help AI agents understand how to use this field correctly."
+        },
+        "x-examples": {
+          "type": "array",
+          "description": "apcore extension: Example values for this field. Helps LLM understand the expected value range and format.",
+          "items": {},
+          "examples": [["user@example.com", "admin@company.org"]]
+        },
+        "x-sensitive": {
+          "type": "boolean",
+          "description": "apcore extension: Marks this field as sensitive (e.g., passwords, API keys, tokens). Sensitive fields are automatically redacted in logs and traces. LLM is hinted not to store these values.",
+          "default": false
+        },
+        "x-constraints": {
+          "type": "string",
+          "description": "apcore extension: Business constraint description in natural language. Helps LLM understand domain-specific rules that cannot be expressed in JSON Schema."
+        },
+        "x-deprecated": {
+          "type": "object",
+          "description": "apcore extension: Marks this field as deprecated.",
+          "properties": {
+            "since": {
+              "type": "string",
+              "description": "Version since which this field is deprecated."
+            },
+            "removal": {
+              "type": "string",
+              "description": "Version in which this field will be removed."
+            },
+            "replacement": {
+              "type": "string",
+              "description": "Name of the replacement field."
+            },
+            "message": {
+              "type": "string",
+              "description": "Human-readable deprecation message."
+            }
+          }
+        }
+      }
+    },
+    "JSONSchemaRef": {
+      "type": "object",
+      "description": "A JSON Schema $ref reference.",
+      "required": ["$ref"],
+      "properties": {
+        "$ref": {
+          "type": "string",
+          "description": "Reference URI. Local: #/definitions/Type. Relative: ./file.yaml#/path. Canonical: apcore://module.id/Type."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description for the referenced type in this context."
+        }
+      }
+    },
+    "ErrorSchemaObject": {
+      "type": "object",
+      "description": "Error schema definition for module-specific errors.",
+      "properties": {
+        "type": {
+          "const": "object"
+        },
+        "properties": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "object",
+              "description": "Error code property definition.",
+              "properties": {
+                "type": {
+                  "const": "string"
+                },
+                "enum": {
+                  "type": "array",
+                  "description": "Allowed error codes. Module error codes MUST NOT conflict with framework error codes (MODULE_*, SCHEMA_*, ACL_*, GENERAL_*).",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]*$"
+                  },
+                  "minItems": 1,
+                  "uniqueItems": true
+                }
+              }
+            },
+            "message": {
+              "type": "object",
+              "description": "Error message property definition.",
+              "properties": {
+                "type": {
+                  "const": "string"
+                }
+              }
+            },
+            "details": {
+              "type": "object",
+              "description": "Error details property definition."
+            }
+          }
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

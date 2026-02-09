@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apcore.dev/schemas/module-meta.schema.json",
+  "title": "apcore Module Metadata Schema",
+  "description": "JSON Schema for validating *_meta.yaml module metadata files. Based on PROTOCOL_SPEC Section 5.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "Brief module description (≤200 chars). Used by AI for quick module discovery and matching. Should explain what the module does, when to use it, and key characteristics.",
+      "minLength": 10,
+      "maxLength": 200
+    },
+    "documentation": {
+      "type": "string",
+      "description": "Detailed module documentation (optional, ≤5000 chars). Supports Markdown. Includes usage scenarios, configuration requirements, constraints, and important notes. Loaded by AI during invocation decision phase.",
+      "minLength": 1,
+      "maxLength": 5000
+    },
+    "entry_point": {
+      "type": "string",
+      "description": "Module entry point in format 'filename:ClassName'. If omitted, the framework infers from file name (snake_case to PascalCase).",
+      "pattern": "^[a-z][a-z0-9_]*:[A-Z][a-zA-Z0-9]*$",
+      "examples": ["db_params:DbParamsValidator", "send_email:SendEmail"]
+    },
+    "allowed_callers": {
+      "type": "array",
+      "description": "List of caller ID patterns allowed to invoke this module. Supports wildcards (e.g., 'orchestrator.*').",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "examples": [["orchestrator.engine.*", "api.handler.task_submit"]]
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "List of modules this module depends on.",
+      "items": {
+        "$ref": "#/$defs/Dependency"
+      }
+    },
+    "tags": {
+      "type": "array",
+      "description": "Tags for categorization and search.",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 50,
+        "pattern": "^[a-z][a-z0-9_-]*$"
+      },
+      "uniqueItems": true,
+      "examples": [["database", "validation", "security"]]
+    },
+    "version": {
+      "type": "string",
+      "description": "Module version following semantic versioning.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?(\\+[a-zA-Z0-9.]+)?$",
+      "default": "1.0.0",
+      "examples": ["1.0.0", "2.1.0-beta.1"]
+    },
+    "annotations": {
+      "$ref": "#/$defs/Annotations"
+    },
+    "examples": {
+      "type": "array",
+      "description": "Usage examples to help AI/LLM understand complex modules.",
+      "items": {
+        "$ref": "#/$defs/ModuleExample"
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Free-form extension metadata. The framework does not validate or interpret metadata contents.",
+      "additionalProperties": true,
+      "examples": [
+        {
+          "owner": "database-team",
+          "avg_latency_ms": 5,
+          "cost_per_call": 0.001,
+          "data_sensitivity": ["PII"],
+          "sla": "99.9%"
+        }
+      ]
+    },
+    "deprecated": {
+      "type": "boolean",
+      "description": "Whether this module is deprecated.",
+      "default": false
+    },
+    "deprecated_message": {
+      "type": ["string", "null"],
+      "description": "Deprecation message explaining why and what to use instead.",
+      "default": null
+    },
+    "replacement": {
+      "type": ["string", "null"],
+      "description": "Canonical ID of the replacement module.",
+      "default": null,
+      "examples": ["executor.validator.db_params_v2"]
+    },
+    "resources": {
+      "$ref": "#/$defs/ResourceLimits"
+    }
+  },
+  "$defs": {
+    "Dependency": {
+      "type": "object",
+      "description": "Module dependency declaration.",
+      "required": ["module_id"],
+      "additionalProperties": false,
+      "properties": {
+        "module_id": {
+          "type": "string",
+          "description": "Canonical ID of the dependent module.",
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "maxLength": 128,
+          "examples": ["common.util.sql_parser"]
+        },
+        "version": {
+          "type": "string",
+          "description": "Version constraint for the dependency. Supports semver ranges similar to npm/pip.",
+          "examples": [">=1.0.0", "^1.0.0", ">=1.0.0,<2.0.0", "~1.0.0"]
+        },
+        "optional": {
+          "type": "boolean",
+          "description": "Whether this dependency is optional. If true, the module can still load when the dependency is missing.",
+          "default": false
+        }
+      }
+    },
+    "Annotations": {
+      "type": "object",
+      "description": "Module behavior annotations. These are hints (not enforced constraints) to help AI/LLM make invocation decisions. Aligned with MCP ToolAnnotations.",
+      "additionalProperties": false,
+      "properties": {
+        "readonly": {
+          "type": "boolean",
+          "description": "Whether the module is read-only (no side effects). true = AI can safely invoke without confirmation.",
+          "default": false
+        },
+        "destructive": {
+          "type": "boolean",
+          "description": "Whether the module performs destructive operations (e.g., delete/overwrite data). true = AI should warn the user before invoking.",
+          "default": false
+        },
+        "idempotent": {
+          "type": "boolean",
+          "description": "Whether the module is idempotent. true = repeated calls with same inputs produce no additional side effects. AI can safely retry.",
+          "default": false
+        },
+        "requires_approval": {
+          "type": "boolean",
+          "description": "Whether human approval is required before invocation. true = AI must ask for user consent before calling.",
+          "default": false
+        },
+        "open_world": {
+          "type": "boolean",
+          "description": "Whether the module interacts with external systems (APIs, networks, services). true = calls may be slow and depend on external availability.",
+          "default": true
+        }
+      }
+    },
+    "ModuleExample": {
+      "type": "object",
+      "description": "A usage example for the module, showing a specific input/output pair.",
+      "required": ["title", "inputs"],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Example title, briefly describing the scenario.",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional detailed description of the example."
+        },
+        "inputs": {
+          "type": "object",
+          "description": "Example input data. MUST conform to the module's input_schema."
+        },
+        "output": {
+          "type": "object",
+          "description": "Optional expected output data. SHOULD conform to the module's output_schema."
+        }
+      }
+    },
+    "ResourceLimits": {
+      "type": "object",
+      "description": "Resource limits for module execution (used for sandboxing and isolation).",
+      "additionalProperties": false,
+      "properties": {
+        "timeout": {
+          "type": "integer",
+          "description": "Execution timeout in milliseconds.",
+          "minimum": 1,
+          "maximum": 3600000,
+          "default": 30000,
+          "examples": [30000, 60000]
+        },
+        "memory_limit": {
+          "type": ["integer", "null"],
+          "description": "Memory limit in bytes. null means no limit.",
+          "minimum": 1,
+          "default": null
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apcore.dev/schemas/binding.schema.json",
+  "title": "apcore Binding File Schema",
+  "description": "JSON Schema for apcore external binding files (.binding.yaml)",
+  "type": "object",
+  "required": ["bindings"],
+  "properties": {
+    "bindings": {
+      "type": "array",
+      "description": "List of module bindings",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/BindingEntry"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "BindingEntry": {
+      "type": "object",
+      "description": "A single module binding entry",
+      "required": ["module_id", "target"],
+      "properties": {
+        "module_id": {
+          "type": "string",
+          "description": "Module Canonical ID (dot-separated snake_case)",
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+          "maxLength": 128
+        },
+        "target": {
+          "type": "string",
+          "description": "Target callable path in format 'module.path:callable_name' or 'module.path:ClassName.method_name'",
+          "pattern": "^[a-zA-Z_][a-zA-Z0-9_.]*:[a-zA-Z_][a-zA-Z0-9_.]*$"
+        },
+        "description": {
+          "type": "string",
+          "description": "Module description for AI/LLM understanding"
+        },
+        "input_schema": {
+          "type": "object",
+          "description": "Input JSON Schema definition. Required if auto_schema is not true."
+        },
+        "output_schema": {
+          "type": "object",
+          "description": "Output JSON Schema definition. Required if auto_schema is not true."
+        },
+        "auto_schema": {
+          "type": "boolean",
+          "description": "If true, generate Schema automatically from target callable's type annotations",
+          "default": false
+        },
+        "schema_ref": {
+          "type": "string",
+          "description": "Reference to an external Schema file path"
+        },
+        "annotations": {
+          "$ref": "#/$defs/Annotations"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags for classification and search"
+        },
+        "version": {
+          "type": "string",
+          "description": "Module version (semver format)",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?$",
+          "default": "1.0.0"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Free-form extension metadata",
+          "additionalProperties": true
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["input_schema", "output_schema"],
+          "properties": {
+            "auto_schema": { "const": false }
+          }
+        },
+        {
+          "required": ["auto_schema"],
+          "properties": {
+            "auto_schema": { "const": true }
+          }
+        },
+        {
+          "required": ["schema_ref"]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "Annotations": {
+      "type": "object",
+      "description": "Module behavior annotations for AI/LLM decision making",
+      "properties": {
+        "readonly": {
+          "type": "boolean",
+          "description": "Module is read-only (no side effects)",
+          "default": false
+        },
+        "destructive": {
+          "type": "boolean",
+          "description": "Module has destructive operations",
+          "default": false
+        },
+        "idempotent": {
+          "type": "boolean",
+          "description": "Module is idempotent (safe to retry)",
+          "default": false
+        },
+        "requires_approval": {
+          "type": "boolean",
+          "description": "Requires human approval before execution",
+          "default": false
+        },
+        "open_world": {
+          "type": "boolean",
+          "description": "Connects to external systems",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

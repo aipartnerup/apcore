@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apcore.dev/schemas/acl-config.schema.json",
+  "title": "apcore ACL Configuration Schema",
+  "description": "JSON Schema for validating ACL YAML configuration files. Based on PROTOCOL_SPEC Section 6.",
+  "type": "object",
+  "required": ["rules"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "ACL schema reference URL.",
+      "const": "https://apcore.dev/acl/v1"
+    },
+    "version": {
+      "type": "string",
+      "description": "ACL configuration version.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?(\\+[a-zA-Z0-9.]+)?$",
+      "examples": ["1.0.0"]
+    },
+    "default_effect": {
+      "type": "string",
+      "description": "Default effect when no rule matches a caller/target pair. MUST be 'allow' or 'deny'. Defaults to 'deny' for security.",
+      "enum": ["allow", "deny"],
+      "default": "deny"
+    },
+    "rules": {
+      "type": "array",
+      "description": "Ordered list of ACL rules. Rules are evaluated by priority (higher first), then by definition order. For same priority, deny takes precedence over allow.",
+      "items": {
+        "$ref": "#/$defs/ACLRule"
+      }
+    },
+    "audit": {
+      "$ref": "#/$defs/AuditConfig"
+    }
+  },
+  "$defs": {
+    "ACLRule": {
+      "type": "object",
+      "description": "A single ACL rule that matches callers against targets and applies an effect.",
+      "required": ["callers", "targets", "effect"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Optional unique identifier for this rule, used for logging and debugging.",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 64,
+          "examples": ["api_to_orchestrator", "deny_executor_to_api"]
+        },
+        "callers": {
+          "type": "array",
+          "description": "List of caller module ID patterns. Supports wildcards: '*' matches any characters. Special values: '@external' for top-level/external calls, '@system' for internal system calls.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "minItems": 1,
+          "examples": [["orchestrator.*"], ["api.handler.task_submit"], ["@external"], ["*"]]
+        },
+        "targets": {
+          "type": "array",
+          "description": "List of target module ID patterns. Supports wildcards: '*' matches any characters.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "minItems": 1,
+          "examples": [["executor.*"], ["common.*"], ["*"]]
+        },
+        "actions": {
+          "type": "array",
+          "description": "List of actions this rule applies to. If omitted, defaults to ['*'] (all actions).",
+          "items": {
+            "type": "string",
+            "enum": ["execute", "validate", "describe", "*"]
+          },
+          "default": ["*"],
+          "examples": [["execute"], ["execute", "validate"]]
+        },
+        "effect": {
+          "type": "string",
+          "description": "The effect to apply when this rule matches. 'allow' permits the call, 'deny' rejects it.",
+          "enum": ["allow", "deny"]
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Rule priority. Higher numbers mean higher priority (evaluated first). At the same priority level, deny takes precedence over allow.",
+          "minimum": 0,
+          "maximum": 1000,
+          "default": 0
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the rule's purpose.",
+          "maxLength": 500
+        },
+        "conditions": {
+          "$ref": "#/$defs/RuleConditions"
+        }
+      }
+    },
+    "RuleConditions": {
+      "type": "object",
+      "description": "Additional conditions for rule matching (beyond caller/target patterns).",
+      "additionalProperties": false,
+      "properties": {
+        "identity_types": {
+          "type": "array",
+          "description": "Only match when the caller's identity type is one of these values.",
+          "items": {
+            "type": "string",
+            "enum": ["user", "service", "agent", "api_key", "system"]
+          },
+          "examples": [["user", "agent"]]
+        },
+        "identity_roles": {
+          "type": "array",
+          "description": "Only match when the caller has at least one of these roles.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "examples": [["admin", "super_admin"]]
+        },
+        "time_window": {
+          "type": "object",
+          "description": "Only match during specific time windows.",
+          "additionalProperties": false,
+          "properties": {
+            "start_hour": {
+              "type": "integer",
+              "description": "Start hour (0-23, UTC).",
+              "minimum": 0,
+              "maximum": 23
+            },
+            "end_hour": {
+              "type": "integer",
+              "description": "End hour (0-23, UTC).",
+              "minimum": 0,
+              "maximum": 23
+            }
+          }
+        },
+        "max_call_depth": {
+          "type": "integer",
+          "description": "Only match when call chain depth does not exceed this value.",
+          "minimum": 1,
+          "maximum": 100
+        }
+      }
+    },
+    "AuditConfig": {
+      "type": "object",
+      "description": "ACL audit logging configuration.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether to enable ACL audit logging.",
+          "default": true
+        },
+        "log_level": {
+          "type": "string",
+          "description": "Audit log level.",
+          "enum": ["trace", "debug", "info", "warn", "error"],
+          "default": "info"
+        },
+        "include_denied": {
+          "type": "boolean",
+          "description": "Whether to log denied access attempts.",
+          "default": true
+        }
+      }
+    }
+  }
+}
