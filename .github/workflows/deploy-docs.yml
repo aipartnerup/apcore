@@ -40,6 +40,7 @@ jobs:
           sed -i 's|\./docs/|./|g' docs/index.md
           sed -i 's|(docs/|(|g' docs/index.md
           sed -i 's|\.\./README\.md|../index.md|g' docs/index.md
+          sed -i 's|\./apcore-logo\.svg|./assets/apcore-logo.svg|g' docs/index.md
 
           # Fix links in subdirectories: ../../PROTOCOL_SPEC.md → ../PROTOCOL_SPEC.md
           find docs -name '*.md' -not -name 'index.md' -exec sed -i 's|\.\./\.\./PROTOCOL_SPEC\.md|../PROTOCOL_SPEC.md|g' {} +
