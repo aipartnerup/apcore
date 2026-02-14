@@ -1,0 +1,89 @@
+site_name: apcore — AI-Perceivable Core
+site_description: A schema-enforced module framework where every interface is inherently perceivable by AI.
+site_url: https://aipartnerup.github.io/apcore/
+repo_url: https://github.com/aipartnerup/apcore
+repo_name: aipartnerup/apcore
+
+theme:
+  name: material
+  logo: assets/apcore-logo.svg
+  favicon: assets/apcore-logo.svg
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - toc.follow
+
+plugins:
+  - search
+
+markdown_extensions:
+  - tables
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Core Documents:
+      - Protocol Specification: PROTOCOL_SPEC.md
+      - Scope Definition: SCOPE.md
+      - Development Roadmap: ROADMAP.md
+  - Concepts & Architecture:
+      - Core Concepts: concepts.md
+      - Architecture Design: architecture.md
+  - API Reference:
+      - Overview: api/README.md
+      - Module Interface: api/module-interface.md
+      - Context Object: api/context-object.md
+      - Registry API: api/registry-api.md
+      - Executor API: api/executor-api.md
+  - User Guides:
+      - Overview: guides/README.md
+      - Creating Modules: guides/creating-modules.md
+      - Creating Modules (中文): guides/creating-modules-translated.md
+      - Schema Definition: guides/schema-definition.md
+      - Middleware: guides/middleware.md
+      - ACL Configuration: guides/acl-configuration.md
+      - Testing Modules: guides/testing-modules.md
+      - Adapter Development: guides/adapter-development.md
+      - Multi-Language Development: guides/multi-language.md
+  - Framework Specifications:
+      - Overview: spec/README.md
+      - Algorithm Reference: spec/algorithms.md
+      - Type Mapping: spec/type-mapping.md
+      - Conformance Definition: spec/conformance.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/aipartnerup/apcore
