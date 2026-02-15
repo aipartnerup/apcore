@@ -4,6 +4,7 @@
 
 This directory contains all technical documentation for apcore, covering core concepts, architecture design, API references, usage guides, and framework specifications.
 For a project overview and quick start, see the [main README](../README.md).
+For language SDK implementations, see [Implementations](../README.md#implementations).
 
 ## Directory Overview
 

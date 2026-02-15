@@ -8,7 +8,7 @@
 
 A schema-driven module development framework that makes every interface naturally perceivable and understandable by AI.
 
-**Project Status: Phase 0 — Framework Specification Phase** (Specification largely complete, Python reference implementation in progress)
+**apcore is a protocol specification.** Language implementations are maintained in separate repositories — see [Implementations](#implementations).
 
 ---
 
@@ -36,7 +36,7 @@ A schema-driven module development framework that makes every interface naturall
 - [Error Handling](#error-handling)
 - [Cross-Language Support](#cross-language-support)
 - [Relationship with Other Tools](#relationship-with-other-tools)
-- [Roadmap](#roadmap)
+- [Implementations](#implementations)
 - [Ecosystem](#ecosystem)
 - [Documentation Index](#documentation-index)
 - [Contributing](#contributing)
@@ -822,7 +822,7 @@ Any language SDK implementation can choose different conformance levels:
 | **Level 1 (Standard)** | Production ready | + ACL, middleware, error handling, observability |
 | **Level 2 (Full)** | Complete implementation | + Hot reload, distributed execution, advanced monitoring |
 
-**Reference Implementation**: Python (in development, for validating protocol feasibility)
+**Reference Implementation**: [apcore-python](https://github.com/aipartnerup/apcore-python)
 
 ---
 
@@ -857,24 +857,15 @@ Any language SDK implementation can choose different conformance levels:
 
 ---
 
-## Roadmap
+## Implementations
 
-| Phase | Status | Content |
-|------|------|------|
-| **Phase 0** | 🔶 Mostly complete | Framework specification: protocol spec, JSON Schema, documentation, algorithms |
-| **Phase 1** | 🚧 In progress | Python reference implementation (Core MVP): IDConverter, SchemaLoader, Registry, Executor |
-| **Phase 2** | 📋 Planned | Core refinement: ACL, Middleware, Error handling, Observability |
-| **Phase 3** | 📋 Planned | CLI & Developer experience |
-| **Phase 4** | 📋 Planned | Advanced features: hot reload, distributed execution, monitoring |
+Language SDK implementations of the apcore protocol specification:
 
-### Milestones
+| Language | Repository | Features | Install |
+|------|------|------|------|
+| **Python** | [apcore-python](https://github.com/aipartnerup/apcore-python) | Schema validation, Registry, Executor, @module decorator, YAML bindings, ACL, Middleware, Observability, Async support | `pip install apcore` |
 
-| Version | Goal |
-|------|------|
-| v0.1.0 | Protocol specification complete |
-| v0.2.0 | Python Core MVP |
-| v0.3.0 | Core features complete |
-| v1.0.0 | Production ready |
+> Interested in implementing apcore for another language? See the [Protocol Specification](./PROTOCOL_SPEC.md) and [Conformance Definition](./docs/spec/conformance.md).
 
 ---
 
@@ -903,7 +894,6 @@ Development guide: see [Adapter Development Guide](./docs/guides/adapter-develop
 |------|------|
 | [Protocol Specification](./PROTOCOL_SPEC.md) | Complete framework specification (RFC 2119 Conformant) |
 | [Scope Definition](./SCOPE.md) | Responsibility boundaries (what's in/out of scope) |
-| [Development Roadmap](./ROADMAP.md) | Development roadmap |
 
 ### Concepts & Architecture
 
@@ -945,7 +935,7 @@ Development guide: see [Adapter Development Guide](./docs/guides/adapter-develop
 
 ## Contributing
 
-apcore is currently in the specification phase. Contributions are welcome in the following forms:
+Contributions are welcome in the following forms:
 
 - **Specification Feedback**: Suggest improvements to the protocol specification in Issues
 - **SDK Implementation**: Implement SDKs for other languages based on [Protocol Specification](./PROTOCOL_SPEC.md)

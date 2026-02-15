@@ -492,7 +492,7 @@ implementation:
   language: "python"                 # Implementation language
   spec_version: "1.0.0-draft"       # Corresponding PROTOCOL_SPEC version
   maintainer: "AI Partner Up"        # Maintainer
-  repository: "https://github.com/aipartnerup/apcore"  # Repository address
+  repository: "https://github.com/aipartnerup/apcore-python"  # Repository address
 
 # Conformance declaration
 conformance:

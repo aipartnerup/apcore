@@ -205,7 +205,6 @@ Use these scenarios to validate whether our boundaries are correct:
 apcore/
 ├── PROTOCOL_SPEC.md          # Core protocol specification (13 chapters)
 ├── SCOPE.md                  # Scope definition
-├── ROADMAP.md                # Development roadmap
 ├── README.md                 # Project introduction
 └── docs/                     # Detailed documentation
     ├── concepts.md           # Core concepts
