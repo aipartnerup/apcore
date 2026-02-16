@@ -77,7 +77,6 @@ nav:
   - User Guides:
       - Overview: guides/README.md
       - Creating Modules: guides/creating-modules.md
-      - Creating Modules (中文): guides/creating-modules-translated.md
       - Schema Definition: guides/schema-definition.md
       - Middleware: guides/middleware.md
       - ACL Configuration: guides/acl-configuration.md
