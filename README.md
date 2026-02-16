@@ -864,6 +864,7 @@ Language SDK implementations of the apcore protocol specification:
 | Language | Repository | Features | Install |
 |------|------|------|------|
 | **Python** | [apcore-python](https://github.com/aipartnerup/apcore-python) | Schema validation, Registry, Executor, @module decorator, YAML bindings, ACL, Middleware, Observability, Async support | `pip install apcore` |
+| **Typescript** | [apcore-typescript](https://github.com/aipartnerup/apcore-typescript) | Schema validation, Registry, Executor, @module decorator, YAML bindings, ACL, Middleware, Observability, Async support | `npm install apcore-js` |
 
 > Interested in implementing apcore for another language? See the [Protocol Specification](./PROTOCOL_SPEC.md) and [Conformance Definition](./docs/spec/conformance.md).
 
