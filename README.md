@@ -911,6 +911,18 @@ Development guide: see [Adapter Development Guide](./docs/guides/adapter-develop
 | [Registry API](./docs/api/registry-api.md) | Registry API |
 | [Executor API](./docs/api/executor-api.md) | Executor API |
 
+### Feature Specifications
+
+| Document | Description |
+|------|------|
+| [ACL System](./docs/features/acl-system.md) | Pattern-based Access Control List with first-match-wins evaluation |
+| [Core Executor](./docs/features/core-executor.md) | Core execution engine with 10-step pipeline |
+| [Decorator & YAML Bindings](./docs/features/decorator-bindings.md) | `@module` decorator and YAML-based module creation |
+| [Middleware System](./docs/features/middleware-system.md) | Composable middleware pipeline with onion execution model |
+| [Observability](./docs/features/observability.md) | Distributed tracing, metrics, and structured logging |
+| [Registry System](./docs/features/registry-system.md) | Module discovery, registration, and querying |
+| [Schema System](./docs/features/schema-system.md) | Schema loading, validation, `$ref` resolution, and export |
+
 ### Usage Guides
 
 | Document | Description |

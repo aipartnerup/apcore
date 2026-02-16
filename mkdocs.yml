@@ -66,6 +66,14 @@ nav:
       - Context Object: api/context-object.md
       - Registry API: api/registry-api.md
       - Executor API: api/executor-api.md
+  - Feature Specifications:
+      - ACL System: features/acl-system.md
+      - Core Executor: features/core-executor.md
+      - Decorator & YAML Bindings: features/decorator-bindings.md
+      - Middleware System: features/middleware-system.md
+      - Observability: features/observability.md
+      - Registry System: features/registry-system.md
+      - Schema System: features/schema-system.md
   - User Guides:
       - Overview: guides/README.md
       - Creating Modules: guides/creating-modules.md

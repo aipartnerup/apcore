@@ -2,7 +2,7 @@
 
 > Complete technical documentation for the apcore (AI-Perceivable Core) framework.
 
-This directory contains all technical documentation for apcore, covering core concepts, architecture design, API references, usage guides, and framework specifications.
+This directory contains all technical documentation for apcore, covering core concepts, architecture design, feature specifications, API references, usage guides, and framework specifications.
 For a project overview and quick start, see the [main README](../README.md).
 For language SDK implementations, see [Implementations](../README.md#implementations).
 
@@ -18,6 +18,14 @@ docs/
 │   ├── context-object.md              ← Context execution context
 │   ├── registry-api.md                ← Registry center
 │   └── executor-api.md                ← Executor
+├── features/                          ← Feature specifications (for SDK implementors)
+│   ├── acl-system.md                  ← Access Control System
+│   ├── core-executor.md               ← Core Execution Engine
+│   ├── decorator-bindings.md          ← Decorator and YAML Bindings
+│   ├── middleware-system.md           ← Middleware System
+│   ├── observability.md               ← Observability System
+│   ├── registry-system.md             ← Module Registry and Discovery System
+│   └── schema-system.md              ← Schema System
 ├── guides/                            ← Usage guides (7 articles)
 │   ├── creating-modules.md            ← Getting started with module creation
 │   ├── schema-definition.md           ← Schema definition in detail
@@ -53,6 +61,20 @@ Core interface definitions for the module system, including complete API documen
 | [Context Object](./api/context-object.md) | Complete definition of the execution context |
 | [Registry API](./api/registry-api.md) | Module registry center API |
 | [Executor API](./api/executor-api.md) | Module executor API |
+
+### [Feature Specifications](./features/)
+
+Implementation-ready feature specifications for SDK developers. Each document defines a specific subsystem's behavior, interfaces, acceptance criteria, and test scenarios.
+
+| Feature Spec | Description |
+|--------------|-------------|
+| [ACL System](./features/acl-system.md) | Pattern-based Access Control List with first-match-wins evaluation |
+| [Core Executor](./features/core-executor.md) | Central orchestration engine with 10-step execution pipeline |
+| [Decorator & YAML Bindings](./features/decorator-bindings.md) | `@module` decorator and YAML-based declarative module creation |
+| [Middleware System](./features/middleware-system.md) | Composable middleware pipeline with onion execution model |
+| [Observability](./features/observability.md) | Distributed tracing, metrics collection, and structured logging |
+| [Registry System](./features/registry-system.md) | Module discovery, registration, and querying with 8-step pipeline |
+| [Schema System](./features/schema-system.md) | Schema loading, validation, `$ref` resolution, and LLM export |
 
 ### [Usage Guides](./guides/)
 

@@ -210,6 +210,7 @@ apcore/
     ├── concepts.md           # Core concepts
     ├── architecture.md       # Internal architecture
     ├── api/                  # API reference
+    ├── features/             # Feature specifications
     ├── guides/               # Usage guides
     └── spec/                 # Framework specification
 ```
