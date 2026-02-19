@@ -10,11 +10,14 @@ A schema-driven module development framework that makes every interface naturall
 
 **apcore is a protocol specification.** Language implementations are maintained in separate repositories — see [Implementations](#implementations).
 
+The growing number of fragmented MCP implementations across the ecosystem proves the demand is real. apcore is the only solution that provides a **complete SDK** with a **unified standard** — enforced schema, behavioral annotations, access control, audit trails, and cross-language consistency. It doesn't replace any project's AI capabilities; it brings them all under one standard.
+
 ---
 
 ## Table of Contents
 
 - [What is apcore?](#what-is-apcore)
+  - [Why Not Just Use Existing MCP Solutions?](#why-not-just-use-existing-mcp-solutions)
 - [Why AI-Perceivable?](#why-ai-perceivable)
 - [Core Principles](#core-principles)
 - [Architecture Overview](#architecture-overview)
@@ -65,6 +68,21 @@ apcore is a **universal module development framework** that makes every module n
 ```
 
 **Not just an AI framework, but a universal framework that is naturally AI-Perceivable.**
+
+### Why Not Just Use Existing MCP Solutions?
+
+Today, many projects build their own MCP servers independently — Stripe has one, TipTap has one, NestJS has one. Each uses different interfaces, different standards, and none provides a programmable SDK. The result is a fragmented ecosystem where developers must learn a new approach for every integration.
+
+apcore takes a different path: **SDK-first, standard-unified**.
+
+| | Fragmented MCP Solutions | apcore |
+|---|---|---|
+| **Programmable SDK** | No — only MCP servers | Yes — `apcore-python`, `apcore-typescript` |
+| **Unified Standard** | No — each project rolls its own | Yes — same schema, annotations, ACL across all integrations |
+| **Behavioral Annotations** | None or minimal | `readonly`, `destructive`, `requires_approval`, `idempotent`, `open_world` |
+| **Access Control** | None | Pattern-based ACL with role support |
+| **Audit Trail** | None | Built-in tracing, metrics, structured logging |
+| **Cross-Language** | Per-language silos | Python and TypeScript with identical behavior |
 
 ### Core Problem
 

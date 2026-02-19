@@ -6,6 +6,8 @@
 
 ### 1.1 Why Do We Need apcore?
 
+The growing number of fragmented MCP implementations across the ecosystem proves the demand is real. apcore is the only solution that provides a **complete SDK** with a **unified standard** — enforced schema, behavioral annotations, access control, audit trails, and cross-language consistency. It doesn't replace any project's AI capabilities; it brings them all under one standard.
+
 **Problems with traditional module development:**
 
 ```python
