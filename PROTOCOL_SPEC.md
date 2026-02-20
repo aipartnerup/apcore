@@ -198,6 +198,27 @@ directory_to_id:
     max_length: 128
 ```
 
+#### Module ID Format Constraint
+
+All module IDs **MUST** conform to the following regular expression:
+
+```
+^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$
+```
+
+**Allowed characters:**
+- Lowercase ASCII letters (`a-z`)
+- Digits (`0-9`)
+- Underscores (`_`)
+- Dots (`.`) as namespace separators only
+
+**Explicitly prohibited:**
+- Hyphens (`-`) — reserved for MCP/OpenAI tool name normalization (dot→hyphen conversion must be bijective)
+- Uppercase letters
+- Spaces, special characters
+
+All SDK implementations **MUST** validate module IDs against this pattern during `register()`. Invalid IDs **MUST** be rejected with `GENERAL_INVALID_INPUT` error.
+
 ### 2.2 ID Map (Cross-language Conversion)
 
 **ID Map** module handles cross-language ID conversion, supporting automatic recognition and manual configuration. Implementations **must** support canonical conversion from various language native formats to Canonical ID.
@@ -3809,6 +3830,59 @@ Interface: MetricsCollector
    */
   observe(name: String, labels: Map, value: Float) → void
 ```
+
+#### Cross-Language Naming Conventions
+
+The protocol specification uses `snake_case` for canonical definitions. Each language SDK **MUST** translate to its native naming convention:
+
+| Protocol (canonical) | TypeScript | Python | Go | Rust |
+|---------------------|------------|--------|-----|------|
+| `module_id` | `moduleId` | `module_id` | `ModuleId` | `module_id` |
+| `input_schema` | `inputSchema` | `input_schema` | `InputSchema` | `input_schema` |
+| `output_schema` | `outputSchema` | `output_schema` | `OutputSchema` | `output_schema` |
+| `get_definition()` | `getDefinition()` | `get_definition()` | `GetDefinition()` | `get_definition()` |
+| `call_async()` | `callAsync()` | `call_async()` | `CallAsync()` | `call_async()` |
+| `requires_approval` | `requiresApproval` | `requires_approval` | `RequiresApproval` | `requires_approval` |
+| `open_world` | `openWorld` | `open_world` | `OpenWorld` | `open_world` |
+
+**Rule:** Bridge/adapter packages (e.g., apcore-mcp-typescript) **MUST** use the same naming conventions as their language's core SDK. A TypeScript MCP bridge **MUST** use camelCase to match apcore-typescript, not snake_case from the protocol spec.
+
+#### Standard Registry Event Names
+
+Registry implementations **MUST** support exactly two standard events:
+
+| Event Name | Triggered | Callback Signature |
+|-----------|-----------|-------------------|
+| `"register"` | After module successfully registered | `(module_id, module) -> None` |
+| `"unregister"` | Before module is removed | `(module_id, module) -> None` |
+
+All SDKs **MUST** export these event names as named constants (e.g., TypeScript: `REGISTRY_EVENTS.REGISTER`, Python: `REGISTRY_EVENTS["REGISTER"]`). Consumers **MUST NOT** hardcode event name strings.
+
+#### Error Code Constants Export Requirement
+
+All SDKs **MUST** export the framework error codes defined in Section 7 as enumerated constants. This prevents magic string dependencies and enables IDE autocomplete.
+
+Example (TypeScript):
+```typescript
+export const ErrorCodes = {
+  MODULE_NOT_FOUND: "MODULE_NOT_FOUND",
+  SCHEMA_VALIDATION_ERROR: "SCHEMA_VALIDATION_ERROR",
+  // ... all codes from Section 7
+} as const;
+```
+
+#### Context Factory Protocol
+
+For web framework integrations (Django, Flask, FastAPI, NestJS, Express), SDKs **SHOULD** provide a `ContextFactory` protocol:
+
+```
+Protocol ContextFactory:
+    create_context(request: Any) -> Context
+```
+
+This enables framework-specific context creation (e.g., extracting Identity from Django `request.user`, JWT tokens, or API keys) without coupling apcore core to any web framework.
+
+The lifecycle is: request arrives → ContextFactory.create_context(request) → Executor.call(module_id, inputs, context) → response.
 
 ### 11.3 Cross-language Implementation Requirements
 
