@@ -3884,6 +3884,44 @@ This enables framework-specific context creation (e.g., extracting Identity from
 
 The lifecycle is: request arrives → ContextFactory.create_context(request) → Executor.call(module_id, inputs, context) → response.
 
+#### Streaming Execution Protocol
+
+Modules MAY support incremental output by implementing a `stream` method alongside the required `execute` method:
+
+```
+stream(inputs, context) → AsyncIterable<Record>
+```
+
+**Semantics:**
+
+- Each yielded record is a partial result chunk; the framework does not prescribe chunk structure.
+- The complete result is the shallow merge of all yielded chunks (left-to-right object spread).
+- `execute()` MUST remain implemented as the non-streaming fallback.
+- Module descriptors SHOULD declare `annotations.streaming = true` when `stream()` is provided.
+
+**Executor.stream() pipeline:**
+
+1. Steps 1–6 identical to `call()`: context creation, safety checks, module lookup, ACL, input validation, before-middleware.
+2. If module lacks `stream()`: fall back to `call()`, yield single chunk, return.
+3. Iterate `module.stream(inputs, context)`, yield each chunk to caller.
+4. After all chunks: validate accumulated output against `output_schema`, run after-middleware on accumulated result.
+
+**Cross-language signatures:**
+
+| Language   | Executor method signature                                                          |
+|------------|------------------------------------------------------------------------------------|
+| TypeScript | `async *stream(moduleId, inputs?, context?): AsyncGenerator<Record<string, unknown>>` |
+| Python     | `async def stream(module_id, inputs?, context?) -> AsyncIterator[dict[str, Any]]`  |
+
+**MCP bridge behavior:**
+
+When bridging `Executor.stream()` to MCP, implementations SHOULD use the standard `notifications/progress` mechanism:
+
+1. Client includes `_meta.progressToken` in the `tools/call` request to opt into streaming.
+2. Server calls `Executor.stream()` and for each yielded chunk, sends `notifications/progress` with `message` containing the JSON-serialized chunk.
+3. The final `CallToolResult` contains the complete accumulated result.
+4. If the client does not provide `progressToken`, the bridge accumulates internally and returns an atomic result.
+
 ### 11.3 Cross-language Implementation Requirements
 
 | Requirement | Python | Rust | Go | Java | TypeScript |
