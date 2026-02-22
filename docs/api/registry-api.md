@@ -73,6 +73,14 @@ class Registry:
         ...
 
     # ============ Schema Query and Export ============
+    #
+    # Note: In implementations, these schema methods MAY be provided as
+    # independent helper functions rather than Registry methods, e.g.:
+    #   get_schema(registry, module_id)
+    #   export_schema(registry, module_id, format=...)
+    # The Registry interface below defines the recommended convenience
+    # interface. Implementations may choose standalone function form
+    # if it better fits their architecture.
 
     def get_schema(self, module_id: str) -> dict | None:
         """Get module Schema (structured dict, for in-program processing)"""
@@ -669,6 +677,8 @@ Steps:
 
 ### 9.1 Custom Discoverer
 
+> **Reserved — Not Implemented.** The `set_discoverer()` API below is a reserved design; current SDKs do not support it. Documentation is retained for future reference.
+
 ```python
 from apcore import Registry, ModuleDiscoverer
 
@@ -696,6 +706,8 @@ registry.discover()
 
 ### 9.2 Module Validator
 
+> **Reserved — Not Implemented.** The `set_validator()` API below is a reserved design; current SDKs do not support it. Documentation is retained for future reference.
+
 ```python
 from apcore import Registry, ModuleValidator
 
@@ -722,6 +734,8 @@ registry.discover()
 ```
 
 ### 9.3 Hot Reload (Development Mode)
+
+> **Reserved — Not Implemented.** The `watch()` / `unwatch()` API below is a reserved design; current SDKs do not support it. Documentation is retained for future reference.
 
 ```python
 from apcore import Registry

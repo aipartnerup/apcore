@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from apcore import Executor
 
 
-@dataclass
+@dataclass(frozen=True)
 class Identity:
     """Caller identity (human/service/AI generic)"""
 
@@ -39,7 +39,8 @@ class Identity:
     type: str = "user"  # user | service | agent | api_key | system
 
     # Role list (ACL engine dependency)
-    roles: list[str] = field(default_factory=list)
+    # Implementations SHOULD use immutable collection types (e.g. Python tuple, TypeScript readonly array)
+    roles: tuple[str, ...] = field(default_factory=tuple)
 
     # Extended attributes (business fields like tenant_id, email)
     attrs: dict[str, Any] = field(default_factory=dict)
@@ -68,9 +69,10 @@ class Context:
     # Caller identity (ACL engine dependency)
     identity: Identity | None = None
 
-    # ====== Logging and redaction ======
+    # ── SHOULD-level members (optional for implementations) ──────────
 
     # Context-aware logger (automatically injects trace_id, module_id, caller_id)
+    # Level: SHOULD (not MUST). Implementations may provide equivalent functionality via a standalone ContextLogger class.
     @property
     def logger(self) -> "ContextLogger":
         """Returns a logger that automatically injects context information"""
@@ -633,12 +635,12 @@ from datetime import datetime
 import uuid
 
 
-@dataclass
+@dataclass(frozen=True)
 class Identity:
     """Caller identity"""
     id: str
     type: str = "user"
-    roles: list[str] = field(default_factory=list)
+    roles: tuple[str, ...] = field(default_factory=tuple)
     attrs: dict[str, Any] = field(default_factory=dict)
 
 

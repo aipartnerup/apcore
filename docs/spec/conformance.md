@@ -490,7 +490,7 @@ implementation:
   name: "apcore-python"              # Implementation name
   version: "0.1.0"                   # Implementation version
   language: "python"                 # Implementation language
-  spec_version: "1.0.0-draft"       # Corresponding PROTOCOL_SPEC version
+  spec_version: "1.2.0-draft"       # Corresponding PROTOCOL_SPEC version
   maintainer: "AI Partner Up"        # Maintainer
   repository: "https://github.com/aipartnerup/apcore-python"  # Repository address
 

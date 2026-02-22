@@ -391,7 +391,7 @@ class SendEmailModule(Module):
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(frozen=True)
 class ModuleAnnotations:
     """Module behavior annotations"""
     readonly: bool = False          # Read-only, no side effects
@@ -399,6 +399,7 @@ class ModuleAnnotations:
     idempotent: bool = False        # Idempotent, safe to call repeatedly
     requires_approval: bool = False # Requires human confirmation
     open_world: bool = True         # Involves external systems
+    streaming: bool = False         # Supports streaming output
 ```
 
 | Field | Default | Meaning | AI Behavior |
@@ -408,6 +409,7 @@ class ModuleAnnotations:
 | `idempotent` | `False` | Repeated calls have no additional side effects | `True` → Safe to retry |
 | `requires_approval` | `False` | Requires human confirmation | `True` → Seek consent |
 | `open_world` | `True` | Connects to external systems | `True` → May be slow |
+| `streaming` | `False` | Supports streaming chunk-by-chunk output | `True` → Read output incrementally |
 
 ```python
 # Query module - read-only, safe

@@ -35,7 +35,7 @@ class Executor:
     def call(
         self,
         module_id: str,
-        inputs: dict[str, Any],
+        inputs: dict[str, Any] | None = None,
         context: Context | None = None
     ) -> dict[str, Any]:
         """
@@ -63,7 +63,7 @@ class Executor:
     async def call_async(
         self,
         module_id: str,
-        inputs: dict[str, Any],
+        inputs: dict[str, Any] | None = None,
         context: Context | None = None
     ) -> dict[str, Any]:
         """
@@ -72,6 +72,21 @@ class Executor:
         Note: Modules only need to define one execute() method (def or async def),
         framework auto-detects and selects appropriate calling method. call_async is used
         to call modules in async context.
+        """
+        ...
+
+    async def stream(
+        self,
+        module_id: str,
+        inputs: dict[str, Any] | None = None,
+        context: Context | None = None
+    ) -> AsyncIterator[dict[str, Any]]:
+        """
+        Stream module output chunk by chunk
+
+        Yields partial results as they become available.
+        Calls the module's stream() method if defined,
+        otherwise falls back to standard execute().
         """
         ...
 

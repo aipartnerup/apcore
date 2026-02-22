@@ -413,30 +413,47 @@ Throw ModuleError
 apcore/
 ├── __init__.py           # Public API
 ├── module.py             # Module base class
-├── registry.py           # Registry implementation
+├── decorator.py          # Module decorator and FunctionModule
+├── bindings.py           # YAML binding loader for zero-code integration
 ├── executor.py           # Executor implementation
 ├── context.py            # Context definition
 ├── acl.py                # ACL implementation
-├── schema.py             # Schema utilities
 ├── errors.py             # Exception definitions
 ├── config.py             # Config loading
 │
-├── discovery/            # Module discovery
+├── registry/             # Module discovery & registration
 │   ├── __init__.py
-│   ├── discoverer.py     # Discoverer interface
-│   ├── python.py         # Python discoverer
-│   └── id_map.py         # ID Map handling
+│   ├── registry.py       # Central Registry class
+│   ├── types.py          # ModuleDescriptor, DiscoveredModule, DependencyInfo
+│   ├── scanner.py        # Directory/file scanning
+│   ├── validation.py     # Module interface validation
+│   ├── metadata.py       # Module metadata extraction
+│   ├── dependencies.py   # Dependency resolution & load order
+│   ├── entry_point.py    # Entry point resolution
+│   └── schema_export.py  # Schema export helpers
 │
-├── validation/           # Validation
+├── schema/               # Schema processing
 │   ├── __init__.py
-│   ├── module.py         # Module interface validation
-│   └── schema.py         # Schema validation
+│   ├── types.py          # SchemaStrategy, ExportProfile, type definitions
+│   ├── loader.py         # Schema loading
+│   ├── validator.py      # Schema validation
+│   ├── exporter.py       # Schema export (JSON/YAML)
+│   ├── ref_resolver.py   # $ref resolution
+│   ├── strict.py         # Strict mode transformation
+│   └── annotations.py    # x-* annotation handling
 │
 ├── middleware/           # Middleware
-│   ├── __init__.py       # Middleware base class + public API
-│   ├── logging.py        # Logging middleware
-│   ├── metrics.py        # Metrics middleware
-│   └── retry.py          # Retry middleware
+│   ├── __init__.py       # Public API
+│   ├── base.py           # Middleware base class
+│   ├── adapters.py       # BeforeMiddleware, AfterMiddleware adapters
+│   ├── manager.py        # MiddlewareManager pipeline engine
+│   └── logging.py        # Logging middleware
+│
+├── observability/        # Observability
+│   ├── __init__.py
+│   ├── tracing.py        # Distributed tracing
+│   ├── metrics.py        # Metrics collection
+│   └── context_logger.py # Context-aware logging
 │
 └── utils/                # Utilities
     ├── __init__.py
@@ -473,11 +490,14 @@ my-project/
 
 ### 5.1 Custom Discoverer
 
+> **Note:** This example shows the conceptual interface pattern. The actual
+> Python SDK uses a function-based API (`apcore.registry.scanner.scan_extensions`).
+
 ```python
-from apcore.discovery import ModuleDiscoverer
+from apcore.registry.scanner import scan_extensions
 
 
-class RemoteDiscoverer(ModuleDiscoverer):
+class RemoteDiscoverer:
     """Discover modules from remote service"""
 
     def discover(self, config: dict) -> list[tuple[str, Type[Module]]]:
@@ -492,15 +512,18 @@ class RemoteDiscoverer(ModuleDiscoverer):
 
 ### 5.2 Custom Validator
 
+> **Note:** This example shows the conceptual interface pattern. The actual
+> Python SDK uses a function-based API (`apcore.registry.validation.validate_module`).
+
 ```python
-from apcore.validation import ModuleValidator
+from apcore.registry.validation import validate_module
 
 
-class StrictValidator(ModuleValidator):
+class StrictValidator:
     """Strict module validator"""
 
     def validate(self, module_class: Type[Module]) -> list[str]:
-        errors = super().validate(module_class)
+        errors = validate_module(module_class)
 
         # Custom rules
         if len(module_class.tags) == 0:
@@ -643,7 +666,7 @@ def sync_caller():
 - **ACL check timeout**: independent timing (default 1 second)
 - Timing starts from first `before()` middleware
 
-**Cancellation Strategy:**
+**Cancellation Strategy:** **Future (Not Implemented)** — The following is a planned design; current SDKs have not yet implemented this.
 
 1. **Cooperative cancellation** (recommended):
    - Module checks `context.cancel_token.is_cancelled()` and actively exits
@@ -673,7 +696,7 @@ See [PROTOCOL_SPEC §11.7.4 Timeout Enforcement](../PROTOCOL_SPEC.md#1174-timeou
 
 - `context.data` across entire call chain is **the same** dict object (reference sharing)
 - Parent module modifications to `context.data` visible to child modules, and vice versa
-- When `derive()` creates new Context, `data` field copies reference (not deep copy)
+- When `child()` creates new Context, `data` field copies reference (not deep copy)
 
 **Isolation:**
 
@@ -688,7 +711,7 @@ context1 = Context(data={})
 executor.call("module_a", {}, context1)
 # module_a internally:
 context.data["key"] = "value_a"
-sub_context = context.derive("module_b")
+sub_context = context.child("module_b")
 executor.call("module_b", {}, sub_context)
 # module_b reads "value_a" (reference sharing)
 
