@@ -746,6 +746,11 @@ annotations:
       type: boolean
       default: true
       description: "Whether involves external systems. true means connects to external APIs/services/network."
+
+    streaming:
+      type: boolean
+      default: false
+      description: "Whether module supports streaming output. true means module can emit partial results progressively."
 ```
 
 **Annotations Design Principles:**
@@ -765,6 +770,7 @@ destructive=true      → AI should warn user before calling
 idempotent=true       → AI can safely retry failed calls
 requires_approval=true → AI must seek user consent
 open_world=true       → AI knows this call involves external systems, may be slow
+streaming=true        → AI knows this module emits partial results progressively
 ```
 
 ### 4.5 Module Usage Examples (Examples)
@@ -1749,7 +1755,36 @@ module_isolation:
 
 ### 5.6 Module Interface Protocol
 
-All modules **must** implement the following interface. Using language-agnostic pseudocode signature definitions:
+All modules **must** provide the following interface. Modules can be defined via a **decorator** (primary approach), a **class-based pattern** (no ABC inheritance required), or a **function call**. Implementations **MUST NOT** require modules to inherit from an abstract base class.
+
+**Primary approach: Decorator**
+
+The `@module` decorator (or `module()` function call) is the recommended way to define modules. It wraps a callable and auto-generates Schema from type annotations:
+
+```python
+from apcore import module
+
+@module(id="email.send", tags=["email"])
+def send_email(to: str, subject: str, body: str) -> dict:
+    """Send email to specified recipient"""
+    return {"success": True, "message_id": "msg_123"}
+```
+
+**Alternative: Class-based modules**
+
+Class-based modules provide an `execute()` method and `input_schema` / `output_schema` / `description` attributes. No ABC inheritance is required:
+
+```python
+class SendEmailModule:
+    input_schema = SendEmailInput
+    output_schema = SendEmailOutput
+    description = "Send email to specified recipient"
+
+    def execute(self, inputs: dict, context: Context) -> dict:
+        return {"success": True, "message_id": "msg_123"}
+```
+
+**Module Interface Contract (language-agnostic pseudocode):**
 
 ```
 Interface: Module
@@ -1784,7 +1819,7 @@ Interface: Module
 
 | Pseudocode Interface | Python | Rust | Go | Java | TypeScript |
 |-----------|--------|------|----|------|------------|
-| `Module` base class | `class Module(ABC)` | `trait Module` | `type Module interface` | `interface Module` | `abstract class Module` |
+| Module definition | `@module` decorator or class with `execute()` | `trait Module` or struct | `type Module interface` or struct | `interface Module` or class | `@module` decorator or class with `execute()` |
 | `execute()` | `def execute(self, inputs, context)` | `fn execute(&self, inputs, context)` | `func (m) Execute(inputs, ctx)` | `Map execute(Map, Context)` | `execute(inputs, context)` |
 | `input_schema` | `ClassVar[Type[BaseModel]]` | `type InputSchema: Serialize` | `InputSchema struct` | `Class<? extends Schema>` | `static inputSchema: ZodSchema` |
 | `Map<String, Any>` | `dict[str, Any]` | `HashMap<String, Value>` | `map[string]any` | `Map<String, Object>` | `Record<string, unknown>` |
@@ -2572,35 +2607,47 @@ Implementations **must** handle module edge cases according to the following tab
 $schema: "https://apcore.dev/acl/v1"
 version: "1.0.0"
 
-# Global rules
+# Global rules (evaluated in order, first-match-wins)
 rules:
-  # Rule 1: API layer can only call orchestration layer
-  - id: "api_to_orchestrator"
-    callers:
-      - "api.*"
-    targets:
-      - "orchestrator.*"
-    actions: [execute]
+  # Rule 1: System internal modules unrestricted
+  - callers: ["@system"]
+    targets: ["*"]
     effect: allow
+    description: "System calls are always allowed"
 
-  # Rule 2: Orchestration layer can call executor layer
-  - id: "orchestrator_to_executor"
-    callers:
-      - "orchestrator.*"
-    targets:
-      - "executor.*"
-    actions: [execute, validate]
+  # Rule 2: API layer can only call orchestration layer
+  - callers: ["api.*"]
+    targets: ["orchestrator.*"]
     effect: allow
+    description: "API layer calls orchestration layer"
 
-  # Rule 3: Forbid executor layer calling API layer
-  - id: "deny_executor_to_api"
-    callers:
-      - "executor.*"
-    targets:
-      - "api.*"
-    actions: ["*"]
+  # Rule 3: Orchestration layer can call executor layer
+  - callers: ["orchestrator.*"]
+    targets: ["executor.*"]
+    effect: allow
+    description: "Orchestration layer calls executor layer"
+
+  # Rule 4: Forbid executor layer calling API layer
+  - callers: ["executor.*"]
+    targets: ["api.*"]
     effect: deny
-    priority: 100  # High priority
+    description: "Block reverse calls from executor to API"
+
+  # Rule 5: Everyone can call common modules
+  - callers: ["*"]
+    targets: ["common.*"]
+    effect: allow
+    description: "Common modules accessible to all"
+
+  # Rule 6: Conditional access to payment modules
+  - callers: ["api.*"]
+    targets: ["executor.payment.*"]
+    effect: allow
+    description: "Payment access restricted to admin/finance"
+    conditions:
+      identity_types: ["user"]
+      roles: ["admin", "finance"]
+      max_call_depth: 5
 
 # Default policy
 default_effect: deny
@@ -2611,6 +2658,34 @@ audit:
   log_level: info
   include_denied: true
 ```
+
+**ACL Rule Fields:**
+
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `callers` | **MUST** | `list[string]` | Caller patterns (OR logic: any match is sufficient) |
+| `targets` | **MUST** | `list[string]` | Target patterns (OR logic: any match is sufficient) |
+| `effect` | **MUST** | `"allow" \| "deny"` | Access decision |
+| `description` | **MUST** | `string` | Human-readable rule description |
+| `conditions` | **MAY** | `object` | Additional conditions (all must pass, AND logic) |
+
+**Conditions sub-fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `identity_types` | `list[string]` | Identity type must be in list |
+| `roles` | `list[string]` | At least one role must overlap |
+| `max_call_depth` | `integer` | Call chain length must not exceed threshold |
+
+**Special patterns:**
+
+| Pattern | Description |
+|---------|-------------|
+| `@external` | Matches calls with no caller (external entry points) |
+| `@system` | Matches calls where identity type is `system` |
+| `*` | Wildcard, matches all module IDs |
+
+**Reserved for future use:** `id`, `actions`, `priority` fields are reserved for future specification versions and **SHOULD NOT** be used by implementations.
 
 ### 6.2 Rule Matching
 
@@ -2651,48 +2726,43 @@ rule_matching:
     - "api.*"       # Match all under api
     - "*.validator.*"  # Match validator in any layer
 
-  # Priority (higher number = higher priority)
-  priority:
-    default: 0
-    explicit_deny: 100
-
-  # Matching order
-  order:
-    1: "By priority descending"
-    2: "deny takes precedence over allow"
-    3: "Exact match takes precedence over wildcard"
+  # Evaluation order: first-match-wins
+  order: "Rules are evaluated in definition order; the first matching rule determines the decision"
 ```
 
 ### 6.3 Rule Evaluation Algorithm
 
-Implementations **must** evaluate ACL rules according to the following algorithm:
+Implementations **must** evaluate ACL rules using a **first-match-wins** strategy. Rules are evaluated in definition order (not sorted by priority). The first rule whose patterns match the caller and target determines the access decision.
 
 ```
-Algorithm: evaluate_acl(caller_id, target_id, rules, default_effect)
+Algorithm: evaluate_acl(caller_id, target_id, rules, default_effect, context)
 
 Input:
   caller_id      — Caller module ID (null means external call, treated as "@external")
   target_id      — Called module ID
-  rules          — Rule list (sorted by priority)
+  rules          — Rule list (evaluated in definition order)
   default_effect — Default policy ("allow" | "deny")
+  context        — Execution context (optional, used for condition evaluation)
 
 Output:
   decision — { effect: "allow" | "deny", matched_rule: Rule | null }
 
 Steps:
   1. effective_caller ← caller_id ?? "@external"
-  2. Sort rules by priority descending (for same priority, maintain definition order)
-  3. For same priority rules, deny comes before allow
-  4. For each rule ∈ sorted_rules:
+  2. For each rule ∈ rules (in definition order):
      a. caller_matched ← false
         For each pattern ∈ rule.callers:
+          If pattern is "@external" and caller_id is null → caller_matched ← true; break
+          If pattern is "@system" and context.identity.type == "system" → caller_matched ← true; break
           If match_pattern(pattern, effective_caller) → caller_matched ← true; break
      b. target_matched ← false
         For each pattern ∈ rule.targets:
           If match_pattern(pattern, target_id) → target_matched ← true; break
      c. If caller_matched and target_matched:
+        If rule.conditions is not empty:
+          If not evaluate_conditions(rule.conditions, context) → continue
         → Return { effect: rule.effect, matched_rule: rule }
-  5. Return { effect: default_effect, matched_rule: null }
+  3. Return { effect: default_effect, matched_rule: null }
 
 Complexity: O(R × P), where R is number of rules, P is average patterns per rule
 ```
@@ -2728,8 +2798,7 @@ Steps:
 | `caller_id` is null | Treat as `@external` | **MUST** |
 | `rules` is empty | Use `default_effect` | **MUST** |
 | `callers` or `targets` in rule is empty array | Rule never matches | **MUST** |
-| `actions` field missing | Treat as `["*"]` (match all actions) | **SHOULD** |
-| Same rule matches both allow and deny | deny takes precedence | **MUST** |
+| Conditions present but no context provided | Rule does not match | **MUST** |
 | Module calls itself | Perform ACL check normally | **MUST** |
 
 ---
@@ -2998,49 +3067,40 @@ Retry middleware (if implemented) **should**:
 
 ### 7.7 Error Hierarchy
 
-Framework error codes **must** follow this hierarchy:
+All framework errors **must** extend from a single `ModuleError` base class using a flat hierarchy. Implementations use a flat hierarchy under `ModuleError` for simplicity.
 
 ```
-ApCoreError (root error)
-├── ConfigError                    # Configuration-related errors
-│   ├── CONFIG_INVALID             # Invalid configuration file
-│   └── CONFIG_NOT_FOUND           # Configuration file not found
-├── ModuleError                    # Module-related errors
-│   ├── MODULE_NOT_FOUND           # Module doesn't exist
-│   ├── MODULE_LOAD_ERROR          # Module load failed
-│   ├── MODULE_EXECUTE_ERROR       # Module execution error
-│   └── MODULE_TIMEOUT             # Module execution timeout
-├── SchemaError                    # Schema-related errors
-│   ├── SCHEMA_NOT_FOUND           # Schema doesn't exist
-│   ├── SCHEMA_VALIDATION_ERROR    # Schema validation failed
-│   ├── SCHEMA_PARSE_ERROR         # Schema parse error
-│   └── SCHEMA_CIRCULAR_REF        # Schema circular reference
-├── ACLError                       # Permission-related errors
-│   ├── ACL_DENIED                 # Permission denied
-│   └── ACL_RULE_ERROR             # ACL rule error
-├── FuncError                      # Function module-related errors
-│   ├── FUNC_MISSING_TYPE_HINT     # Function parameter missing type annotation
-│   └── FUNC_MISSING_RETURN_TYPE   # Function missing return type annotation
-├── BindingError                   # Binding-related errors
-│   ├── BINDING_INVALID_TARGET     # target format invalid
-│   ├── BINDING_MODULE_NOT_FOUND   # Module path can't be imported
-│   ├── BINDING_CALLABLE_NOT_FOUND # Can't find target callable
-│   ├── BINDING_NOT_CALLABLE       # Target not callable
-│   └── BINDING_SCHEMA_MISSING     # Schema missing
-├── DependencyError                # Dependency-related errors
-│   ├── CIRCULAR_DEPENDENCY        # Circular dependency
-│   └── DEPENDENCY_NOT_FOUND       # Dependent module doesn't exist
-├── CallChainError                 # Call chain-related errors
-│   ├── CALL_DEPTH_EXCEEDED        # Call depth exceeded limit
-│   ├── CIRCULAR_CALL              # Circular call
-│   └── CALL_FREQUENCY_EXCEEDED    # Call frequency exceeded limit
-└── GeneralError                   # General errors
-    ├── GENERAL_INVALID_INPUT      # Invalid input
-    ├── GENERAL_INTERNAL_ERROR     # Internal error
-    └── GENERAL_NOT_IMPLEMENTED    # Feature not implemented
+ModuleError (base error for all framework errors)
+├── ConfigError                    # CONFIG_INVALID — Invalid configuration file
+├── ConfigNotFoundError            # CONFIG_NOT_FOUND — Configuration file not found
+├── ModuleNotFoundError            # MODULE_NOT_FOUND — Module doesn't exist
+├── ModuleLoadError                # MODULE_LOAD_ERROR — Module load failed
+├── ModuleExecuteError             # MODULE_EXECUTE_ERROR — Module execution error
+├── ModuleTimeoutError             # MODULE_TIMEOUT — Module execution timeout
+├── SchemaNotFoundError            # SCHEMA_NOT_FOUND — Schema doesn't exist
+├── SchemaValidationError          # SCHEMA_VALIDATION_ERROR — Schema validation failed
+├── SchemaParseError               # SCHEMA_PARSE_ERROR — Schema parse error
+├── SchemaCircularRefError         # SCHEMA_CIRCULAR_REF — Schema circular reference
+├── ACLDeniedError                 # ACL_DENIED — Permission denied
+├── ACLRuleError                   # ACL_RULE_ERROR — ACL rule error
+├── FuncMissingTypeHintError       # FUNC_MISSING_TYPE_HINT — Function parameter missing type annotation
+├── FuncMissingReturnTypeError     # FUNC_MISSING_RETURN_TYPE — Function missing return type annotation
+├── BindingInvalidTargetError      # BINDING_INVALID_TARGET — target format invalid
+├── BindingModuleNotFoundError     # BINDING_MODULE_NOT_FOUND — Module path can't be imported
+├── BindingCallableNotFoundError   # BINDING_CALLABLE_NOT_FOUND — Can't find target callable
+├── BindingNotCallableError        # BINDING_NOT_CALLABLE — Target not callable
+├── BindingSchemaMissingError      # BINDING_SCHEMA_MISSING — Schema missing
+├── CircularDependencyError        # CIRCULAR_DEPENDENCY — Circular dependency
+├── DependencyNotFoundError        # DEPENDENCY_NOT_FOUND — Dependent module doesn't exist
+├── CallDepthExceededError         # CALL_DEPTH_EXCEEDED — Call depth exceeded limit
+├── CircularCallError              # CIRCULAR_CALL — Circular call
+├── CallFrequencyExceededError     # CALL_FREQUENCY_EXCEEDED — Call frequency exceeded limit
+├── InvalidInputError              # GENERAL_INVALID_INPUT — Invalid input
+├── InternalError                  # GENERAL_INTERNAL_ERROR — Internal error
+└── NotImplementedError            # GENERAL_NOT_IMPLEMENTED — Feature not implemented
 ```
 
-Implementations **must** ensure all framework-thrown errors belong to this hierarchy. Module custom errors **should** inherit from `ModuleError`.
+Each error class carries a `code` attribute set to the corresponding error code string (e.g., `MODULE_NOT_FOUND`). Implementations **must** ensure all framework-thrown errors are instances of `ModuleError`. Module custom errors **should** also extend `ModuleError` directly.
 
 ---
 
@@ -3135,7 +3195,8 @@ Implementations **must** follow these default value conventions:
 | `schema.max_ref_depth` | `32` | `1..100` | `$ref` resolution depth limit |
 | `acl.root` | `"./acl"` | Valid directory path | ACL file root directory |
 | `acl.default_effect` | `"deny"` | `allow`/`deny` | Default behavior when no rule matches |
-| `executor.timeout` | `60000` (ms) | `0..600000` | Global execution timeout (0 means no limit) |
+| `executor.default_timeout` | `30000` (ms) | `0..600000` | Per-module execution timeout (0 means no limit) |
+| `executor.global_timeout` | `60000` (ms) | `0..600000` | Global execution timeout across entire call chain (0 means no limit) |
 | `executor.max_call_depth` | `32` | `1..1000` | Call chain max depth |
 | `executor.max_module_repeat` | `3` | `1..100` | Max occurrences of same module in call chain |
 | `observability.enabled` | `true` | `true`/`false` | Observability master switch |
@@ -3146,7 +3207,8 @@ Implementations **must** follow these default value conventions:
 
 **Note**:
 - Configuration values exceeding ranges **must** be rejected in `validate_config()` (algorithm A12)
-- `timeout = 0` means disable timeout, implementations **should** log WARN
+- Implementations use a **dual-timeout model**: `default_timeout` applies to each individual module execution, while `global_timeout` applies to the entire call chain from root invocation. If either timeout is exceeded, a `MODULE_TIMEOUT` error is raised.
+- `timeout = 0` means disable that timeout, implementations **should** log WARN
 - `max_call_depth` and `max_module_repeat` used for call chain safety checks (algorithm A20)
 
 ### 8.2 Environment Variable Override
@@ -3509,6 +3571,21 @@ extension_points:
         - "YAMLSchemaLoader"     # Load from file if cache miss
 ```
 
+> **NOTE — Implementation Extension Point Names:**
+> The theoretical extension point names above (`schema_loader`, `id_converter`, `module_loader`, `executor`, `acl_checker`) reflect the original design-time taxonomy. Current SDK implementations (Python and TypeScript) use a different set of five built-in extension point names that map to runtime needs:
+>
+> | Spec (Theoretical) | Implementation (Actual) | Rationale |
+> |---------------------|--------------------------|-----------|
+> | `schema_loader`     | `discoverer`             | Unified discovery replaces separate schema/module loading |
+> | `module_loader`     | `module_validator`       | Validation is the primary customization need at load time |
+> | `acl_checker`       | `acl`                    | Shortened for ergonomic API use |
+> | *(no equivalent)*   | `middleware`             | First-class middleware extension point added for runtime pipeline customization |
+> | *(no equivalent)*   | `span_exporter`          | Observability export as a dedicated extension point |
+> | `id_converter`      | *(not yet implemented)*  | Deferred; not a common runtime customization need |
+> | `executor`          | *(not yet implemented)*  | Deferred; local execution covers current use cases |
+>
+> Implementations declaring Level 2 conformance use the actual names (`discoverer`, `middleware`, `acl`, `span_exporter`, `module_validator`) in `ExtensionManager`.
+
 ### 10.4 Framework Built-in Middleware
 
 ```yaml
@@ -3606,6 +3683,8 @@ Extension Point: Executor
   execute(module: Module, method: String, inputs: Map, context: Context) → Map
 ```
 
+> **NOTE:** The interface contracts above use the original theoretical names. See the mapping table in §10.3 for the actual extension point names used in SDK implementations (`discoverer`, `middleware`, `acl`, `span_exporter`, `module_validator`).
+
 ### 10.7 Extension Loading Order
 
 Implementations **must** load extensions according to the following algorithm:
@@ -3640,7 +3719,7 @@ Implementations **must** handle middleware edge cases according to the following
 | Scenario | Behavior | Level |
 |------|------|------|
 | `before()` returns `None` | Keep `inputs` unchanged, continue chain | **MUST** |
-| `before()` returns partial field dict | Merge into `inputs` (shallow merge) | **MUST** |
+| `before()` returns partial field dict | Replace `inputs` entirely | **MUST** |
 | `before()` returns non-dict type | Throw `GENERAL_INTERNAL_ERROR` | **MUST** |
 | `before()` throws `ModuleError` | Trigger `on_error()` chain, skip module execution | **MUST** |
 | `before()` modifies `context.data` | Allowed, modifications visible to subsequent middleware and module | **MUST** |
@@ -3650,7 +3729,7 @@ Implementations **must** handle middleware edge cases according to the following
 | Scenario | Behavior | Level |
 |------|------|------|
 | `after()` returns `None` | Keep `result` unchanged, continue chain | **MUST** |
-| `after()` returns partial field dict | Merge into `result` (shallow merge) | **MUST** |
+| `after()` returns partial field dict | Replace `result` entirely | **MUST** |
 | `after()` throws `ModuleError` | Trigger `on_error()` chain, replace original result | **MUST** |
 | `after()` returns value not matching `output_schema` | Trigger `SCHEMA_VALIDATION_ERROR` | **MUST** |
 
@@ -4192,7 +4271,8 @@ Return:
 
 | Level | Scope | Default | Description |
 |------|------|--------|------|
-| Global timeout | before + execute + after | 60000ms | Configuration item `executor.timeout` |
+| Per-module timeout | Individual module execution | 30000ms | Configuration item `executor.default_timeout` |
+| Global timeout | before + execute + after (entire call chain) | 60000ms | Configuration item `executor.global_timeout` |
 | ACL check timeout | ACL rule evaluation | 1000ms | Separate timing |
 | Schema validation timeout | Input/output validation | Included in global timeout | Not separately timed |
 

@@ -264,27 +264,17 @@ pip install apcore
 ```
 
 ```python
-from apcore import Module, Registry, Executor, Context
-from pydantic import BaseModel, Field
+from apcore import module, Registry, Executor
 
-# 1. Define module (Schema-driven)
-class GreetInput(BaseModel):
-    name: str = Field(..., description="User name")
-
-class GreetOutput(BaseModel):
-    message: str
-
-class GreetModule(Module):
+# 1. Define module with @module decorator (Schema auto-inferred from type annotations)
+@module(id="executor.greet", tags=["greeting"])
+def greet(name: str) -> dict:
     """Generate greeting message"""
-    input_schema = GreetInput
-    output_schema = GreetOutput
-
-    def execute(self, inputs: dict, context: Context) -> dict:
-        return {"message": f"Hello, {inputs['name']}!"}
+    return {"message": f"Hello, {name}!"}
 
 # 2. Register & call
 registry = Registry()
-registry.register("executor.greet", GreetModule())
+registry.register("executor.greet", greet)
 
 executor = Executor(registry=registry)
 result = executor.call("executor.greet", {"name": "World"})
@@ -838,7 +828,7 @@ Any language SDK implementation can choose different conformance levels:
 |------|------|------|
 | **Level 0 (Core)** | Minimally viable | ID mapping, Schema loading, Registry, Executor |
 | **Level 1 (Standard)** | Production ready | + ACL, middleware, error handling, observability |
-| **Level 2 (Full)** | Complete implementation | + Hot reload, distributed execution, advanced monitoring |
+| **Level 2 (Full)** | Complete implementation | + Extension point framework, async task management, W3C Trace Context, Prometheus metrics, version negotiation, schema migration, module isolation, multi-version coexistence |
 
 **Reference Implementation**: [apcore-python](https://github.com/aipartnerup/apcore-python)
 
@@ -896,7 +886,7 @@ The apcore ecosystem uses a **core + independent adapters** architecture. The co
 
 | Type | Examples | Description |
 |------|------|------|
-| **Web Frameworks** | `apcore-fastapi`, `apcore-flask`, `apcore-express` | Expose modules as HTTP APIs |
+| **Web Frameworks** | `nestjs-apcore`, `flask-apcore`, `express-apcore` | Expose modules as HTTP APIs |
 | **AI Protocols** | `apcore-mcp`, `apcore-openai-tools` | Expose modules as AI tools |
 | **RPC** | `apcore-grpc`, `apcore-thrift` | Expose modules as RPC services |
 

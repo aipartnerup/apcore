@@ -87,26 +87,39 @@ extensions/
 
 ### 2.1 Module
 
-Modules are the smallest execution unit in apcore.
+Modules are the smallest execution unit in apcore. Modules can be defined via the `@module` decorator (primary approach) or by providing a class with an `execute()` method and required schema attributes. No abstract base class inheritance is required.
+
+**Decorator approach (recommended):**
 
 ```python
-class Module(ABC):
-    """Module base class"""
+from apcore import module
+
+@module(id="executor.greet", tags=["greeting"])
+def greet(name: str) -> dict:
+    """Generate greeting message"""
+    return {"message": f"Hello, {name}!"}
+```
+
+**Class-based approach (no ABC required):**
+
+```python
+class SendEmailModule:
+    """Send email module"""
 
     # ====== Core Layer (Required) ======
-    input_schema: ClassVar[Type[BaseModel]]
-    output_schema: ClassVar[Type[BaseModel]]
-    description: ClassVar[str]
+    input_schema = SendEmailInput       # Type[BaseModel] or JSON Schema dict
+    output_schema = SendEmailOutput     # Type[BaseModel] or JSON Schema dict
+    description = "Send email to specified recipient"
 
     # ====== Annotation Layer (Optional) ======
-    name: ClassVar[str | None]
-    tags: ClassVar[list[str]]
-    version: ClassVar[str]
-    annotations: ClassVar[ModuleAnnotations | None]  # Behavior annotations
-    examples: ClassVar[list[ModuleExample]]           # Usage examples
+    name = None                         # Human-readable name
+    tags = ["email"]                    # Tag list
+    version = "1.0.0"                   # Semantic version
+    annotations = None                  # ModuleAnnotations instance
+    examples = []                       # Usage examples
 
     # ====== Extension Layer (Optional) ======
-    metadata: ClassVar[dict[str, Any]]                # Free metadata
+    metadata = {}                       # Free metadata
 
     # Core methods (def or async def both supported, framework auto-detects)
     def execute(self, inputs: dict, context: Context) -> dict: ...
@@ -488,10 +501,49 @@ my-project/
 
 ## 5. Extension Points
 
-### 5.1 Custom Discoverer
+apcore provides a formal `ExtensionManager` API for managing pluggable extension points. The five built-in extension points are: `discoverer`, `middleware`, `acl`, `span_exporter`, and `module_validator`.
 
-> **Note:** This example shows the conceptual interface pattern. The actual
-> Python SDK uses a function-based API (`apcore.registry.scanner.scan_extensions`).
+### 5.1 ExtensionManager API
+
+The `ExtensionManager` provides a unified interface for registering, retrieving, and applying extensions:
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `register` | `register(point_name, extension)` | Register an extension for a named extension point |
+| `get` | `get(point_name)` | Retrieve the single registered extension, or `None` |
+| `get_all` | `get_all(point_name)` | Retrieve all registered extensions for a point as a list |
+| `unregister` | `unregister(point_name, extension)` | Remove a registered extension; returns `bool` |
+| `apply` | `apply(registry, executor)` | Apply all registered extensions to the given registry and executor |
+| `list_points` | `list_points()` | List all registered extension points as a list of `ExtensionPoint` |
+
+```python
+from apcore import ExtensionManager
+
+manager = ExtensionManager()
+
+# Register a custom discoverer
+manager.register("discoverer", remote_discoverer)
+
+# Register a custom module validator
+manager.register("module_validator", strict_validator)
+
+# Retrieve all discoverers
+discoverers = manager.get_all("discoverer")
+
+# Retrieve single extension (or None)
+acl_ext = manager.get("acl")
+
+# Remove an extension
+removed = manager.unregister("discoverer", remote_discoverer)  # True
+
+# Apply all extensions to registry and executor
+manager.apply(registry, executor)
+
+# List registered points
+points = manager.list_points()  # [ExtensionPoint(...), ...]
+```
+
+### 5.2 Custom Discoverer
 
 ```python
 from apcore.registry.scanner import scan_extensions
@@ -510,10 +562,7 @@ class RemoteDiscoverer:
         return modules
 ```
 
-### 5.2 Custom Validator
-
-> **Note:** This example shows the conceptual interface pattern. The actual
-> Python SDK uses a function-based API (`apcore.registry.validation.validate_module`).
+### 5.3 Custom Validator
 
 ```python
 from apcore.registry.validation import validate_module
@@ -532,7 +581,7 @@ class StrictValidator:
         return errors
 ```
 
-### 5.3 Custom ACL
+### 5.4 Custom ACL
 
 ```python
 from apcore import ACL
@@ -549,6 +598,8 @@ class RBACAuthorizer(ACL):
 
         return bool(set(context.identity.roles) & set(required_roles))
 ```
+
+> **Backward compatibility note:** The informal patterns shown above (subclassing, function-based APIs) continue to work. The `ExtensionManager` provides a formal unified API on top of these patterns for implementations that need programmatic extension point management.
 
 ---
 
@@ -666,13 +717,13 @@ def sync_caller():
 - **ACL check timeout**: independent timing (default 1 second)
 - Timing starts from first `before()` middleware
 
-**Cancellation Strategy:** **Future (Not Implemented)** — The following is a planned design; current SDKs have not yet implemented this.
+**Cancellation Strategy:** Cooperative cancellation is implemented in both SDKs via `CancelToken`. Forced termination fallback is not yet implemented.
 
-1. **Cooperative cancellation** (recommended):
+1. **Cooperative cancellation** (implemented):
    - Module checks `context.cancel_token.is_cancelled()` and actively exits
    - Suitable for long-running tasks (loops, I/O, etc.)
 
-2. **Forced termination** (fallback):
+2. **Forced termination** (fallback, not yet implemented):
    - After cooperative cancellation fails, wait grace period (default 5 seconds)
    - If still not exited, force terminate thread/coroutine (may cause resource leaks)
 

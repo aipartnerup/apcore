@@ -25,7 +25,9 @@ Comprehensive observability with distributed tracing, metrics collection, and st
 - Implement `ContextLogger` as a standalone structured logger with JSON and text output formats.
 - Support log levels: trace, debug, info, warn, error, fatal.
 - Inject trace context (trace_id, module_id, caller_id) into every log entry.
-- Automatically redact fields with `_secret_` prefix when `redact_sensitive=True`.
+- Automatically redact sensitive data using two mechanisms:
+  1. `x-sensitive` schema annotation: used by the Executor to redact annotated fields from input/output before logging.
+  2. `_secret_` key prefix: used by `ContextLogger` to redact matching keys in log extras when `redact_sensitive=True`.
 - Provide `ContextLogger.from_context()` factory for automatic context extraction.
 - Implement `ObsLoggingMiddleware` using `ContextLogger` with stack-based timing and configurable input/output logging.
 
@@ -96,6 +98,35 @@ As documented in the package `__init__.py`:
 1. `TracingMiddleware` -- Captures total wall-clock time (outermost).
 2. `MetricsMiddleware` -- Captures execution timing.
 3. `ObsLoggingMiddleware` -- Logs with timing already set up (innermost).
+
+### W3C Trace Context
+
+apcore supports [W3C Trace Context](https://www.w3.org/TR/trace-context/) for distributed tracing interoperability. The `TraceContext` class provides methods to inject and extract `traceparent` headers, enabling trace propagation across service boundaries.
+
+| Method | Description |
+|--------|-------------|
+| `TraceContext.inject(context)` | Convert an apcore `Context` into a headers dict (`dict[str, str]` / `Record<string, string>`) containing a `traceparent` key |
+| `TraceContext.extract(headers)` | Parse a `traceparent` header from an incoming request headers dict and return a `TraceParent` |
+| `TraceContext.from_traceparent(str)` | Strict parsing of a `traceparent` string into a `TraceParent` object |
+
+Integration with `Context.create()`:
+
+```python
+from apcore import Context
+from apcore.observability import TraceContext
+
+# Extract trace parent from incoming request
+trace_parent = TraceContext.extract(request.headers)
+
+# Create context with propagated trace
+context = Context.create(trace_parent=trace_parent)
+
+# Inject trace parent into outgoing request headers
+outgoing_headers = TraceContext.inject(context)
+# outgoing_headers = {"traceparent": "00-<trace_id>-<span_id>-01"}
+```
+
+The `traceparent` header follows the W3C format: `{version}-{trace_id}-{parent_id}-{trace_flags}`.
 
 ## Key Files
 

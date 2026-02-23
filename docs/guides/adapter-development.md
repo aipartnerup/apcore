@@ -14,8 +14,8 @@ The apcore core remains pure and **does not include** any web framework-specific
                            ↑ Built on core mechanisms
       ┌──────────┬──────────┬──────────┬──────────┐
       │          │          │          │          │
-   apcore-      apcore-    apcore-    apcore-    ...
-   fastapi      flask      django     express
+   tiptap-      flask-    django-    express-    ...
+   apcore       apcore    apcore     apcore
    (separate)   (separate)  (separate)  (separate)
 ```
 
@@ -39,16 +39,16 @@ Adapters **should not**:
 ### Repository Naming
 
 ```
-apcore-{framework}
+{framework}-apcore
 ```
 
-Examples: `apcore-fastapi`, `apcore-flask`, `apcore-django`, `apcore-express`
+Examples: `flask-apcore`, `django-apcore`, `express-apcore`
 
 ### Package Naming
 
 ```
-pip install apcore-{framework}
-npm install apcore-{framework}
+pip install {framework}-apcore
+npm install {framework}-apcore
 ```
 
 ## 4. Adapter Interface Reference

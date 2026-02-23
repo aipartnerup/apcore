@@ -110,7 +110,7 @@ Level 1 adds permission control, middleware, basic observability, and structured
 | **Context complete implementation** | `trace_id`, `caller_id`, `call_chain`, `executor`, `identity`, `data` | PROTOCOL_SPEC §5.7 |
 | **Circular call detection** | Detect circular calls based on `call_chain` | PROTOCOL_SPEC §5.7 |
 | **Call depth limit** | Limit maximum call depth based on `call_chain` | PROTOCOL_SPEC §5.7 |
-| **Error hierarchy system** | Complete error type hierarchy (ApCoreError → ModuleError/SchemaError/ACLError/...) | PROTOCOL_SPEC §7.7 |
+| **Error hierarchy system** | Flat error hierarchy under `ModuleError` base class | PROTOCOL_SPEC §7.7 |
 | **Custom error codes** | Module custom error code registration and collision detection | PROTOCOL_SPEC §7.4 |
 | **ID Map all-language conversion** | Support ID conversion for all five languages | PROTOCOL_SPEC §2.2 |
 | **Dependency resolution** | `resolve_dependencies()` topological sort and circular dependency detection | PROTOCOL_SPEC §5.3 |
@@ -164,11 +164,11 @@ Level 2 adds all extension points, async modules, hot loading, and advanced obse
 
 | Component | Responsibility | Reference Section |
 |------|------|---------|
-| **Extension point framework** | All five extension points (SchemaLoader, ModuleLoader, IDConverter, ACLChecker, Executor) | PROTOCOL_SPEC §10.3, §10.6 |
+| **Extension point framework** | All five extension points (discoverer, middleware, acl, span_exporter, module_validator) via `ExtensionManager` with `register()`, `get()`, `get_all()`, `unregister()`, `apply()`, `list_points()`. Note: these names map to actual runtime extension needs rather than the original theoretical design names (SchemaLoader, ModuleLoader, IDConverter, ACLChecker, Executor). | PROTOCOL_SPEC §10.3, §10.6 |
 | **Extension point chain** | `first_success`, `all`, `fallback` strategies | PROTOCOL_SPEC §10.3 |
 | **Extension loading order** | `load_extensions()` algorithm | PROTOCOL_SPEC §10.7 |
-| **Async modules** | `execute_async()`, `get_status()`, `cancel()` | PROTOCOL_SPEC §5.8 |
-| **Async state machine** | State transition rules (idle → pending → running → completed/failed/cancelled) | PROTOCOL_SPEC §5.8 |
+| **Async modules** | `submit()`, `get_status()`, `cancel()`, `list_tasks()` via `AsyncTaskManager` | PROTOCOL_SPEC §5.8 |
+| **Async state machine** | State transition rules (PENDING → RUNNING → COMPLETED/FAILED/CANCELLED) via `TaskStatus` enum | PROTOCOL_SPEC §5.8 |
 | **Middleware state machine** | Complete state transitions (init → before → execute → after → done, with error branches) | PROTOCOL_SPEC §10.5 |
 | **Version negotiation** | `negotiate_version()` algorithm | PROTOCOL_SPEC §12.3 |
 | **Schema migration** | `migrate_schema()` algorithm | PROTOCOL_SPEC §12.4 |
@@ -539,10 +539,8 @@ conformance:
       total: 10
 
   # Known deviations (if any)
-  known_deviations:
-    - id: "T03-012"
-      reason: "$ref circular reference detection is Level 0 non-mandatory, not yet implemented (target: v0.2.0)"
-      severity: "minor"
+  # Format: - { id: "T03-xxx", reason: "...", severity: "minor|major" }
+  known_deviations: []
 
   # Optional feature support
   optional_features:
@@ -576,7 +574,26 @@ apcore Conformant — Level 2 (Full)
 
 ---
 
-## 7. References
+## 7. Known Deviations
+
+The following features are specified in PROTOCOL_SPEC but not yet fully implemented in current SDK releases (apcore-python, apcore-typescript). Implementers **should** document these deviations in their conformance declarations.
+
+| Feature | Spec Reference | Current Status |
+|---------|---------------|----------------|
+| `Config` class (YAML loading, env override, schema validation) | PROTOCOL_SPEC §8.1, §8.2, §8.3 | Stub implementation only. YAML loading, environment variable override, and `validate_config()` schema validation are not implemented. |
+| Registry schema query/export methods (`get_schema`, `export_schema`, etc.) | PROTOCOL_SPEC §11.2 | Not on `Registry`. A standalone `SchemaExporter` class is available for schema export. |
+| Error codes `GENERAL_NOT_IMPLEMENTED` and `DEPENDENCY_NOT_FOUND` | PROTOCOL_SPEC §7.2, §7.7 | Error code constants defined but corresponding error classes not yet implemented. |
+| Version negotiation | PROTOCOL_SPEC §12.3 | `negotiate_version()` algorithm not yet implemented. |
+| Schema migration | PROTOCOL_SPEC §12.4 | `migrate_schema()` algorithm not yet implemented. |
+| Module isolation | PROTOCOL_SPEC §5.5 | Process-level or container-level isolation not yet implemented. |
+| Multi-version coexistence | PROTOCOL_SPEC §5.4 | Multiple versions of the same module running concurrently not yet implemented. |
+| `AsyncTaskManager.submit()` / `cancel()` sync vs async | PROTOCOL_SPEC §5.8 | Python `AsyncTaskManager.submit()` and `cancel()` are async methods; TypeScript equivalents are synchronous. |
+
+Implementations declaring conformance **must** list any of these deviations that apply in their `known_deviations` section.
+
+---
+
+## 8. References
 
 - [PROTOCOL_SPEC §11 — SDK Implementation Guide](../../PROTOCOL_SPEC.md#11-sdk-implementation-guide)
 - [PROTOCOL_SPEC §11.4 — Conformance Testing Requirements](../../PROTOCOL_SPEC.md#114-conformance-testing-requirements)

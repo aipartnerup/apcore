@@ -94,9 +94,9 @@ Things explicitly **not within the project scope**:
 | **Distributed Execution** | Advanced runtime feature | Independent extension projects |
 | **UI/CLI Applications** | Focus on core protocol | Upstream projects |
 | **Specific Cloud Service Integrations** | Stay neutral | Extension packages |
-| **Framework Adapters** (Flask/FastAPI/Django) | Keep core pure, belongs to ecosystem projects | Independent repositories (e.g., apcore-fastapi) |
+| **Framework Adapters** (Flask/FastAPI/Django) | Keep core pure, belongs to ecosystem projects | Independent repositories (e.g., django-apcore) |
 
-> apcore only defines the adapter interface specification (see [Adapter Development Guide](./docs/guides/adapter-development.md)); it does not include any framework-specific implementations. The community or official team can develop adapters in independent repositories (e.g., `apcore-fastapi`, `apcore-flask`, `apcore-django`), built on top of the core `module()` and External Binding mechanisms.
+> apcore only defines the adapter interface specification (see [Adapter Development Guide](./docs/guides/adapter-development.md)); it does not include any framework-specific implementations. The community or official team can develop adapters in independent repositories (e.g., `flask-apcore`, `django-apcore`), built on top of the core `module()` and External Binding mechanisms.
 
 ---
 

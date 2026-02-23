@@ -677,7 +677,7 @@ Steps:
 
 ### 9.1 Custom Discoverer
 
-> **Reserved — Not Implemented.** The `set_discoverer()` API below is a reserved design; current SDKs do not support it. Documentation is retained for future reference.
+> Implemented in apcore-python v0.5.1+ and apcore-typescript v0.3.0+.
 
 ```python
 from apcore import Registry, ModuleDiscoverer
@@ -706,7 +706,7 @@ registry.discover()
 
 ### 9.2 Module Validator
 
-> **Reserved — Not Implemented.** The `set_validator()` API below is a reserved design; current SDKs do not support it. Documentation is retained for future reference.
+> Implemented in apcore-python v0.5.1+ and apcore-typescript v0.3.0+.
 
 ```python
 from apcore import Registry, ModuleValidator
@@ -735,7 +735,7 @@ registry.discover()
 
 ### 9.3 Hot Reload (Development Mode)
 
-> **Reserved — Not Implemented.** The `watch()` / `unwatch()` API below is a reserved design; current SDKs do not support it. Documentation is retained for future reference.
+> Implemented in apcore-python v0.5.1+ and apcore-typescript v0.3.0+. Python requires the optional `watchdog` dependency.
 
 ```python
 from apcore import Registry
