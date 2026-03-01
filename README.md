@@ -794,6 +794,9 @@ apcore defines a unified error format and standard error codes:
 | ACL | `ACL_DENIED` | Permission denied | No |
 | Binding | `BINDING_INVALID_TARGET` | Invalid binding target path | No |
 | Binding | `BINDING_CALLABLE_NOT_FOUND` | Bound callable object not found | No |
+| Approval | `APPROVAL_DENIED` | Approval explicitly denied | No |
+| Approval | `APPROVAL_TIMEOUT` | Approval request timed out | Yes |
+| Approval | `APPROVAL_PENDING` | Approval still pending | Yes |
 | General | `GENERAL_INTERNAL_ERROR` | Internal error | Yes |
 
 ---
@@ -931,6 +934,7 @@ Development guide: see [Adapter Development Guide](./docs/guides/adapter-develop
 | [Observability](./docs/features/observability.md) | Distributed tracing, metrics, and structured logging |
 | [Registry System](./docs/features/registry-system.md) | Module discovery, registration, and querying |
 | [Schema System](./docs/features/schema-system.md) | Schema loading, validation, `$ref` resolution, and export |
+| [Approval System](./docs/features/approval-system.md) | Runtime enforcement of `requires_approval` via pluggable ApprovalHandler |
 
 ### Usage Guides
 
