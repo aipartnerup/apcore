@@ -537,6 +537,19 @@ Fields with `x-` prefix in Schema are LLM-specific extensions, don't affect stan
 
 > Complete usage and examples: see [Schema Definition Guide](./docs/guides/schema-definition.md) | [Protocol Specification §4.3](./PROTOCOL_SPEC.md#43-llm-extension-fields).
 
+### AI Intent Metadata
+
+In the extension layer (`metadata` dictionary), you can provide optional AI intent hints to help agents understand *when* and *how* to use the module. These are conventions, not enforced by the framework.
+
+| Key | Purpose |
+|-----|---------|
+| `x-when-to-use` | Positive guidance: scenarios where this module is the right choice |
+| `x-when-not-to-use` | Negative guidance: scenarios where a different module should be used |
+| `x-common-mistakes` | Known pitfalls that AI agents frequently encounter |
+| `x-workflow-hints` | Suggested pre/post steps or related modules in a typical workflow |
+
+> Detailed usage: see [Protocol Specification §4.6](./PROTOCOL_SPEC.md#46-module-extension-metadata-metadata).
+
 ---
 
 ## Context Object

@@ -872,6 +872,26 @@ metadata:
   billing_category: "communication"
 ```
 
+**Recommended AI Intent Metadata Keys:**
+
+When modules are consumed by AI agents, the following metadata keys help agents understand when and how to use a module. These are conventions, not enforced by the framework.
+
+```yaml
+metadata:
+  # AI intent hints (all optional, free-form strings)
+  x-when-to-use: "Use when the user wants to send a transactional email (order confirmation, password reset, etc.)"
+  x-when-not-to-use: "Do not use for marketing/bulk emails; use the bulk-email module instead"
+  x-common-mistakes: "Forgetting to set reply_to; passing HTML in plain_text field"
+  x-workflow-hints: "Call validate-email module first to verify recipient address exists"
+```
+
+| Key | Purpose |
+|-----|---------|
+| `x-when-to-use` | Positive guidance: scenarios where this module is the right choice |
+| `x-when-not-to-use` | Negative guidance: scenarios where a different module should be used |
+| `x-common-mistakes` | Known pitfalls that AI agents (and humans) frequently encounter |
+| `x-workflow-hints` | Suggested pre/post steps or related modules in a typical workflow |
+
 **Metadata Design Principles:**
 
 | Principle | Description |
@@ -3068,6 +3088,55 @@ error_format:
     timestamp:
       type: string
       format: datetime
+    retryable:
+      type: boolean
+      nullable: true
+      description: "Whether the error is retryable (see §8.6 for defaults per error code)"
+    ai_guidance:
+      type: string
+      nullable: true
+      description: "Machine-readable hint for AI agents on how to handle this error"
+    user_fixable:
+      type: boolean
+      nullable: true
+      description: "Whether the end-user can fix the root cause without developer intervention"
+    suggestion:
+      type: string
+      nullable: true
+      description: "Actionable suggestion for resolving the error"
+```
+
+#### 8.1.1 AI Error Guidance Fields
+
+The four optional fields (`retryable`, `ai_guidance`, `user_fixable`, `suggestion`) enable AI agents to programmatically understand and respond to errors without parsing human-readable messages.
+
+**Field semantics:**
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `retryable` | `boolean \| null` | Whether retrying the same call may succeed. Each error code has a default value (see §8.6). Callers may override. `null` means "depends on context". |
+| `ai_guidance` | `string \| null` | Machine-readable guidance for AI agents, e.g. `"validate input schema before retry"`, `"check module registry for available alternatives"`. |
+| `user_fixable` | `boolean \| null` | Whether the end-user (non-developer) can resolve the issue, e.g. fixing a typo in input vs. a server misconfiguration. |
+| `suggestion` | `string \| null` | Human-readable actionable suggestion, e.g. `"Check that the table name contains only lowercase letters and underscores"`. |
+
+**Serialization rules:**
+
+- Implementations **must** use sparse serialization: fields with `null` values **should** be omitted from the serialized output.
+- `retryable` defaults to the value specified in §8.6 for each error code. Callers may explicitly override this default.
+- `ai_guidance`, `user_fixable`, and `suggestion` default to `null` (omitted).
+
+**Example with AI guidance fields:**
+
+```json
+{
+  "code": "SCHEMA_VALIDATION_ERROR",
+  "message": "Invalid table name format",
+  "details": { "field": "table", "value": "User-Info" },
+  "retryable": false,
+  "user_fixable": true,
+  "suggestion": "Table names must use only lowercase letters and underscores. Change 'User-Info' to 'user_info'.",
+  "ai_guidance": "validate input against schema before retry; this error will recur with the same input"
+}
 ```
 
 ### 8.2 Framework Error Codes
@@ -3285,6 +3354,10 @@ error_response:
   trace_id: "550e8400-e29b-41d4-a716-446655440000"
   timestamp: "2026-02-05T10:30:00Z"
   cause: null  # Or nested error object
+  retryable: false
+  user_fixable: true
+  suggestion: "Table names must use only lowercase letters and underscores. Change 'User-Info' to 'user_info'."
+  # ai_guidance: omitted (null) — sparse serialization
 ```
 
 ### 8.6 Retry Semantics
@@ -3297,14 +3370,37 @@ Implementations **must not** default retry failed module invocations. Retry beha
 |--------|--------|------|
 | `MODULE_TIMEOUT` | **Yes** | Timeout may be temporary |
 | `GENERAL_INTERNAL_ERROR` | **Yes** | Internal error may be transient |
+| `APPROVAL_TIMEOUT` | **Yes** | Approval handler may respond on retry |
 | `MODULE_EXECUTE_ERROR` | **Depends** | Depends on module's `annotations.idempotent` |
-| `SCHEMA_VALIDATION_ERROR` | **No** | Input error won't change with retry |
+| `CONFIG_NOT_FOUND` | **No** | Configuration file missing, needs deployment fix |
+| `CONFIG_INVALID` | **No** | Configuration content invalid, needs manual fix |
+| `ACL_RULE_ERROR` | **No** | ACL rule definition error, needs config fix |
 | `ACL_DENIED` | **No** | Permission insufficiency won't change with retry |
+| `APPROVAL_DENIED` | **No** | Explicit denial, retry won't change decision |
+| `APPROVAL_PENDING` | **No** | Async approval in progress, use polling instead |
 | `MODULE_NOT_FOUND` | **No** | Module non-existence won't change with retry |
 | `MODULE_LOAD_ERROR` | **No** | Load errors typically need code fixes |
+| `SCHEMA_VALIDATION_ERROR` | **No** | Input error won't change with retry |
+| `SCHEMA_NOT_FOUND` | **No** | Schema reference missing, needs config fix |
+| `SCHEMA_PARSE_ERROR` | **No** | Schema syntax error, needs manual fix |
+| `SCHEMA_CIRCULAR_REF` | **No** | Circular reference in schema, needs manual fix |
 | `CALL_DEPTH_EXCEEDED` | **No** | Call chain structure issue, retry won't change |
 | `CIRCULAR_CALL` | **No** | Call chain structure issue, retry won't change |
 | `CALL_FREQUENCY_EXCEEDED` | **No** | Call chain structure issue, retry won't change |
+| `GENERAL_INVALID_INPUT` | **No** | Invalid input, caller must fix before retry |
+| `FUNC_MISSING_TYPE_HINT` | **No** | Code-level issue, needs developer fix |
+| `FUNC_MISSING_RETURN_TYPE` | **No** | Code-level issue, needs developer fix |
+| `BINDING_INVALID_TARGET` | **No** | Binding format error, needs config fix |
+| `BINDING_MODULE_NOT_FOUND` | **No** | Binding target module missing, needs config fix |
+| `BINDING_CALLABLE_NOT_FOUND` | **No** | Binding target callable missing, needs code fix |
+| `BINDING_NOT_CALLABLE` | **No** | Binding target not callable, needs code fix |
+| `BINDING_SCHEMA_MISSING` | **No** | Schema missing for binding, needs code fix |
+| `BINDING_FILE_INVALID` | **No** | Binding file parse error, needs config fix |
+| `CIRCULAR_DEPENDENCY` | **No** | Module dependency cycle, needs architecture fix |
+
+Implementations **should** use this table as the default `retryable` value for each error subclass. Callers may override the default on a per-instance basis.
+
+> **Note:** The following error codes are forward-declared for future features and do not yet have exception classes or retryability defaults: `GENERAL_NOT_IMPLEMENTED`, `DEPENDENCY_NOT_FOUND`, `MIDDLEWARE_CHAIN_ERROR`. Implementations **should** assign retryability defaults when the corresponding exception classes are introduced.
 
 Retry middleware (if implemented) **should**:
 - Only retry errors marked as retryable
