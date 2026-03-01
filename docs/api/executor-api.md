@@ -57,6 +57,7 @@ class Executor:
             ACLDeniedError: Insufficient permissions
             ApprovalDeniedError: Approval explicitly rejected
             ApprovalTimeoutError: Approval timed out
+            ApprovalPendingError: Approval pending, retry with _approval_token (Phase B)
             CallDepthExceededError: Call chain depth exceeded
             CircularCallError: Circular call detected
             CallFrequencyExceededError: Same module call frequency exceeded
@@ -178,7 +179,7 @@ executor = Executor(registry=registry, acl=acl)
 
 ```python
 from apcore import Registry, Executor
-from apcore.approval import AutoApproveHandler, CallbackApprovalHandler
+from apcore.approval import AutoApproveHandler, CallbackApprovalHandler, ApprovalResult
 
 # Auto-approve (testing/development)
 executor = Executor(registry=registry, approval_handler=AutoApproveHandler())
@@ -186,7 +187,7 @@ executor = Executor(registry=registry, approval_handler=AutoApproveHandler())
 # Custom callback
 async def my_approval_logic(request):
     if request.module_id.startswith("dangerous."):
-        return ApprovalResult(status="denied", reason="Dangerous modules blocked")
+        return ApprovalResult(status="rejected", reason="Dangerous modules blocked")
     return ApprovalResult(status="approved")
 
 executor = Executor(
@@ -329,6 +330,7 @@ from apcore import (
     ACLDeniedError,
     ApprovalDeniedError,
     ApprovalTimeoutError,
+    ApprovalPendingError,
     CallDepthExceededError,
     CircularCallError,
     CallFrequencyExceededError,
@@ -436,8 +438,9 @@ executor.call(module_id, inputs, context)
     ├─ 4.5. Approval gate (if approval_handler configured)
     │      └─ Only for modules with requires_approval=true
     │      └─ approval_handler.request_approval(request)
-    │      └─ If denied, throw ApprovalDeniedError
+    │      └─ If rejected, throw ApprovalDeniedError
     │      └─ If timeout, throw ApprovalTimeoutError
+    │      └─ If pending, throw ApprovalPendingError (Phase B)
     │
     ├─ 5. Input validation
     │      └─ Validate against input_schema
@@ -502,10 +505,11 @@ result = context.executor.call(
   └────┬────┘                     └──────────────────┘
        │ permission passed
        ▼
-  ┌──────────┐  denied/timeout   ┌──────────────────────────┐
+  ┌──────────┐  rejected/timeout ┌──────────────────────────┐
   │ approval │──────────────────▶│ error: APPROVAL_DENIED   │
   │   gate   │                   │      / APPROVAL_TIMEOUT  │
-  └────┬─────┘                   └──────────────────────────┘
+  └────┬─────┘                   │      / APPROVAL_PENDING  │
+       │                         └──────────────────────────┘
        │ approved (or skipped)
        ▼
   ┌──────────┐   validation failed ┌──────────────────────┐

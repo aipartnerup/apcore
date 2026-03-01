@@ -31,7 +31,7 @@ The executor processes every module call through the following pipeline:
 
 4. **ACL Enforcement** -- The caller's `Identity` (extracted from the context) is checked against the module's access control list. Unauthorized calls are rejected before any execution occurs.
 
-4.5. **Approval Gate** -- If an `ApprovalHandler` is configured and the module declares `requires_approval=true`, the handler is invoked to obtain approval before proceeding. The handler may block for human input or return immediately. Denied or timed-out approvals raise `ApprovalDeniedError` or `ApprovalTimeoutError`. Skipped entirely when no handler is configured or the module does not require approval. See [Approval System](./approval-system.md).
+4.5. **Approval Gate** -- If an `ApprovalHandler` is configured and the module declares `requires_approval=true`, the handler is invoked to obtain approval before proceeding. The handler may block for human input or return immediately. Rejected or timed-out approvals raise `ApprovalDeniedError` or `ApprovalTimeoutError`. Skipped entirely when no handler is configured or the module does not require approval. See [Approval System](./approval-system.md).
 
 5. **Input Validation with Pydantic + Sensitive Field Redaction** -- The call's input payload is validated against the module's input schema (a dynamically generated Pydantic model). Fields annotated with `x-sensitive` are redacted from logs and error messages using the `redact_sensitive` utility.
 

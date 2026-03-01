@@ -2866,9 +2866,11 @@ ApprovalRequest:
       type: object
       description: "The arguments that will be passed to the module"
     context:
-      description: "Execution context (trace_id, identity, call_chain)"
+      type: object
+      description: "Execution context (trace_id, identity, call_chain) — see §5.7 Context Parameter Specification"
     annotations:
-      description: "Module's ModuleAnnotations (requires_approval is guaranteed true)"
+      type: object
+      description: "Module's ModuleAnnotations (requires_approval is guaranteed true) — see §4.4 Module Behavior Annotations"
     description:
       type: string
       nullable: true
