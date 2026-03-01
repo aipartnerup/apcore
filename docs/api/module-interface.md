@@ -407,7 +407,7 @@ class ModuleAnnotations:
 | `readonly` | `False` | Does not modify any state | `True` → Safe to call |
 | `destructive` | `False` | May delete/overwrite data | `True` → Warn before calling |
 | `idempotent` | `False` | Repeated calls have no additional side effects | `True` → Safe to retry |
-| `requires_approval` | `False` | Requires human confirmation | `True` → Seek consent |
+| `requires_approval` | `False` | Requires human confirmation before execution. When an `ApprovalHandler` is configured on the Executor, this is enforced at runtime (Step 4.5). See [Approval System](../features/approval-system.md). | `True` → Seek consent |
 | `open_world` | `True` | Connects to external systems | `True` → May be slow |
 | `streaming` | `False` | Supports streaming chunk-by-chunk output | `True` → Read output incrementally |
 

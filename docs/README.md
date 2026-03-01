@@ -20,6 +20,7 @@ docs/
 │   └── executor-api.md                ← Executor
 ├── features/                          ← Feature specifications (for SDK implementors)
 │   ├── acl-system.md                  ← Access Control System
+│   ├── approval-system.md             ← Approval System
 │   ├── core-executor.md               ← Core Execution Engine
 │   ├── decorator-bindings.md          ← Decorator and YAML Bindings
 │   ├── middleware-system.md           ← Middleware System
@@ -69,6 +70,7 @@ Implementation-ready feature specifications for SDK developers. Each document de
 | Feature Spec | Description |
 |--------------|-------------|
 | [ACL System](./features/acl-system.md) | Pattern-based Access Control List with first-match-wins evaluation |
+| [Approval System](./features/approval-system.md) | Runtime enforcement of `requires_approval` via pluggable ApprovalHandler |
 | [Core Executor](./features/core-executor.md) | Central orchestration engine with 10-step execution pipeline |
 | [Decorator & YAML Bindings](./features/decorator-bindings.md) | `@module` decorator and YAML-based declarative module creation |
 | [Middleware System](./features/middleware-system.md) | Composable middleware pipeline with onion execution model |
@@ -126,4 +128,5 @@ Quickly find authoritative definitions for concepts:
 | Registry | [registry-api.md](./api/registry-api.md) | [README](../README.md#quick-start) |
 | Executor | [executor-api.md](./api/executor-api.md) | [README](../README.md#quick-start) |
 | ACL | [PROTOCOL_SPEC.md §6](../PROTOCOL_SPEC.md#6-acl-specification) | [README](../README.md#acl-access-control) |
+| ApprovalHandler | [approval-system.md](./features/approval-system.md) | [PROTOCOL_SPEC.md §7](../PROTOCOL_SPEC.md#7-approval-system) |
 | Middleware | [middleware.md](./guides/middleware.md) | [README](../README.md#middleware) |

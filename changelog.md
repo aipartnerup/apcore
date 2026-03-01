@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-03-01
+
+### Added
+
+#### Protocol Specification
+- **Approval System (§7)** — new section in `PROTOCOL_SPEC.md` defining the `ApprovalHandler` protocol, `ApprovalRequest`/`ApprovalResult` data types, Executor Step 4.5 integration, error types (`APPROVAL_DENIED`, `APPROVAL_TIMEOUT`, `APPROVAL_PENDING`), built-in handlers, protocol bridge handlers, phased implementation (Phase A sync, Phase B async), and conformance levels
+
+#### Feature Documentation
+- `docs/features/approval-system.md` — full specification of the Approval System feature
+
+### Changed
+- **`PROTOCOL_SPEC.md`** — bumped to v1.3.0-draft; updated `requires_approval` annotation description to reference runtime enforcement; added approval error codes and error hierarchy; renumbered §7–§13 → §8–§14
+- **`docs/api/executor-api.md`** — added `approval_handler` constructor parameter, `ApprovalDeniedError`/`ApprovalTimeoutError` to error types, Step 4.5 to execution flow and state machine
+- **`docs/api/module-interface.md`** — updated `requires_approval` annotation description to reference Approval System and runtime enforcement
+- **`docs/features/core-executor.md`** — added Step 4.5 (Approval Gate) to the execution pipeline
+- **`docs/README.md`** — added Approval System to feature specifications table, directory tree, and concept index
+
+---
+
 ## [0.2.0] - 2026-02-23
 
 ### Added

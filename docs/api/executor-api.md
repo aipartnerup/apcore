@@ -18,7 +18,8 @@ class Executor:
         self,
         registry: Registry,
         middlewares: list[Middleware] | None = None,
-        acl: "ACL | None" = None
+        acl: "ACL | None" = None,
+        approval_handler: "ApprovalHandler | None" = None
     ) -> None:
         """
         Initialize Executor
@@ -27,6 +28,7 @@ class Executor:
             registry: Module registry
             middlewares: Middleware list (executed in order)
             acl: Access Control List
+            approval_handler: Approval handler for modules with requires_approval=true
         """
         ...
 
@@ -53,6 +55,8 @@ class Executor:
             ModuleNotFoundError: Module does not exist
             ValidationError: Input/output validation failed
             ACLDeniedError: Insufficient permissions
+            ApprovalDeniedError: Approval explicitly rejected
+            ApprovalTimeoutError: Approval timed out
             CallDepthExceededError: Call chain depth exceeded
             CircularCallError: Circular call detected
             CallFrequencyExceededError: Same module call frequency exceeded
@@ -169,6 +173,29 @@ from apcore import Registry, Executor, ACL
 acl = ACL.load("./acl/global_acl.yaml")
 executor = Executor(registry=registry, acl=acl)
 ```
+
+### 2.4 With ApprovalHandler
+
+```python
+from apcore import Registry, Executor
+from apcore.approval import AutoApproveHandler, CallbackApprovalHandler
+
+# Auto-approve (testing/development)
+executor = Executor(registry=registry, approval_handler=AutoApproveHandler())
+
+# Custom callback
+async def my_approval_logic(request):
+    if request.module_id.startswith("dangerous."):
+        return ApprovalResult(status="denied", reason="Dangerous modules blocked")
+    return ApprovalResult(status="approved")
+
+executor = Executor(
+    registry=registry,
+    approval_handler=CallbackApprovalHandler(my_approval_logic)
+)
+```
+
+When an `approval_handler` is set, modules declaring `requires_approval=true` in their annotations will trigger the handler at Step 4.5 of the execution pipeline. See [Approval System](../features/approval-system.md).
 
 ---
 
@@ -300,6 +327,8 @@ from apcore import (
     ModuleNotFoundError,
     ValidationError,
     ACLDeniedError,
+    ApprovalDeniedError,
+    ApprovalTimeoutError,
     CallDepthExceededError,
     CircularCallError,
     CallFrequencyExceededError,
@@ -324,6 +353,14 @@ except ACLDeniedError as e:
     print(f"Access denied: {e.message}")
     print(f"Required: {e.required_permission}")
     print(f"Caller: {e.caller_id}")
+
+except ApprovalDeniedError as e:
+    # Approval explicitly rejected (requires_approval=true module)
+    print(f"Approval denied: {e.reason}")
+
+except ApprovalTimeoutError as e:
+    # Approval timed out waiting for response
+    print(f"Approval timed out: {e.reason}")
 
 except CallDepthExceededError as e:
     # Call chain depth exceeded
@@ -396,6 +433,12 @@ executor.call(module_id, inputs, context)
     │      └─ acl.check(caller_id, module_id, context)
     │      └─ If denied, throw ACLDeniedError
     │
+    ├─ 4.5. Approval gate (if approval_handler configured)
+    │      └─ Only for modules with requires_approval=true
+    │      └─ approval_handler.request_approval(request)
+    │      └─ If denied, throw ApprovalDeniedError
+    │      └─ If timeout, throw ApprovalTimeoutError
+    │
     ├─ 5. Input validation
     │      └─ Validate against input_schema
     │      └─ If failed, throw ValidationError
@@ -458,6 +501,12 @@ result = context.executor.call(
   │  acl    │────────────────────▶│ error: ACL_DENIED│
   └────┬────┘                     └──────────────────┘
        │ permission passed
+       ▼
+  ┌──────────┐  denied/timeout   ┌──────────────────────────┐
+  │ approval │──────────────────▶│ error: APPROVAL_DENIED   │
+  │   gate   │                   │      / APPROVAL_TIMEOUT  │
+  └────┬─────┘                   └──────────────────────────┘
+       │ approved (or skipped)
        ▼
   ┌──────────┐   validation failed ┌──────────────────────┐
   │ validate │────────────────────▶│ error: VALIDATION    │
@@ -532,7 +581,7 @@ Implementations **MUST** handle Executor edge cases per the following table:
 **Concurrent safety notes:**
 - Executor instance **MUST** be thread-safe, supporting multi-threaded concurrent calls
 - Each `call()` **SHOULD** use independent Context instance (created via `derive()`)
-- See [PROTOCOL_SPEC §11.7 Concurrency Model Specification](../../PROTOCOL_SPEC.md#117-concurrency-model-specification)
+- See [PROTOCOL_SPEC §12.7 Concurrency Model Specification](../../PROTOCOL_SPEC.md#127-concurrency-model-specification)
 
 ---
 

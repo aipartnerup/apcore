@@ -2,10 +2,10 @@
 
 > **Canonical Specification** - This document is the authoritative specification for the apcore protocol
 
-> Version: 1.2.0-draft
+> Version: 1.3.0-draft
 > Status: Draft Specification (RFC 2119 Conformant)
 > Stability: Specification content is stable, pending reference implementation verification
-> Last Updated: 2026-02-22
+> Last Updated: 2026-03-01
 
 ---
 
@@ -17,13 +17,14 @@
 - [4. Schema Specification](#4-schema-specification-schema-specification)
 - [5. Module Specification](#5-module-specification-module-specification)
 - [6. ACL Specification](#6-acl-specification-acl-specification)
-- [7. Error Handling Specification](#7-error-handling-specification-error-handling-specification)
-- [8. Configuration Specification](#8-configuration-specification-configuration-specification)
-- [9. Observability Specification](#9-observability-specification-observability-specification)
-- [10. Extension Mechanism](#10-extension-mechanism-extension-mechanism)
-- [11. SDK Implementation Guide](#11-sdk-implementation-guide-sdk-implementation-guide)
-- [12. Versioning](#12-versioning-versioning)
-- [13. Appendix](#13-appendix)
+- [7. Approval System](#7-approval-system-approval-system)
+- [8. Error Handling Specification](#8-error-handling-specification-error-handling-specification)
+- [9. Configuration Specification](#9-configuration-specification-configuration-specification)
+- [10. Observability Specification](#10-observability-specification-observability-specification)
+- [11. Extension Mechanism](#11-extension-mechanism-extension-mechanism)
+- [12. SDK Implementation Guide](#12-sdk-implementation-guide-sdk-implementation-guide)
+- [13. Versioning](#13-versioning-versioning)
+- [14. Appendix](#14-appendix)
 - [Revision History](#revision-history)
 
 ---
@@ -740,7 +741,7 @@ annotations:
     requires_approval:
       type: boolean
       default: false
-      description: "Whether requires human approval. true means AI should seek user consent before calling."
+      description: "Whether requires human approval before execution. When an ApprovalHandler is configured, the Executor enforces this at runtime (see §7 Approval System)."
 
     open_world:
       type: boolean
@@ -758,7 +759,7 @@ annotations:
 | Principle | Description |
 |------|------|
 | All optional | Use default values when not defined |
-| Hints | Are hints rather than enforced constraints, AI uses as reference |
+| Hints + Enforcement | Most annotations are hints for AI; `requires_approval` can be enforced at runtime via the Approval System (§7) |
 | Aligned with MCP | Field design compatible with MCP ToolAnnotations |
 | Extensible | Can add new fields without breaking compatibility |
 
@@ -768,7 +769,7 @@ annotations:
 readonly=true         → AI can call safely, no confirmation needed
 destructive=true      → AI should warn user before calling
 idempotent=true       → AI can safely retry failed calls
-requires_approval=true → AI must seek user consent
+requires_approval=true → AI must seek user consent; Executor enforces via ApprovalHandler (§7)
 open_world=true       → AI knows this call involves external systems, may be slow
 streaming=true        → AI knows this module emits partial results progressively
 ```
@@ -2803,9 +2804,242 @@ Steps:
 
 ---
 
-## 7. Error Handling Specification (Error Handling Specification)
+## 7. Approval System (Approval System)
 
-### 7.1 Unified Error Format
+### 7.1 Overview
+
+The Approval System provides **runtime enforcement** of the `requires_approval` annotation. While annotations are generally hints for AI/LLM clients, `requires_approval` is unique: when an `ApprovalHandler` is configured, the Executor **blocks execution** of modules marked `requires_approval=true` until explicit approval is granted.
+
+This mechanism is the bridge between annotation-level metadata and runtime governance — making apcore the only framework that **enforces** Human-in-the-Loop approval rather than merely hinting at it.
+
+**Relationship to ACL:**
+
+| Concern | ACL (§6) | Approval System (§7) |
+|---------|----------|----------------------|
+| Question answered | "Is this caller **allowed** to invoke this module?" | "Does this **invocation** need human sign-off?" |
+| Mechanism | Pattern-based rule matching | Pluggable handler with external interaction |
+| Timing | Step 4 in Executor pipeline | Step 4.5 in Executor pipeline (after ACL) |
+| Interaction | None (deterministic rule evaluation) | May involve user dialog, webhook, or agent confirmation |
+
+A caller may pass ACL (they have the role to call `deploy.prod`) but still require approval for each invocation (because the module is destructive).
+
+### 7.2 ApprovalHandler Protocol
+
+Implementations **must** define an `ApprovalHandler` protocol (or interface) with the following contract:
+
+```
+Interface: ApprovalHandler
+  /**
+   * Request approval for a module execution.
+   * Implementation decides whether to block synchronously or return pending.
+   *
+   * @param request — ApprovalRequest containing module_id, arguments, context, annotations
+   * @return result — ApprovalResult with status: approved|rejected|timeout|pending
+   */
+  request_approval(request: ApprovalRequest) → ApprovalResult
+
+  /**
+   * Check status of a previously pending approval (Phase B).
+   * Default implementation SHOULD return rejected.
+   *
+   * @param approval_id — Identifier from a prior pending result
+   * @return result     — ApprovalResult with current status
+   */
+  check_approval(approval_id: String) → ApprovalResult
+```
+
+Both methods **must** be asynchronous (async/await) in implementations that support it.
+
+### 7.3 Data Types
+
+#### 7.3.1 ApprovalRequest
+
+```yaml
+ApprovalRequest:
+  type: object
+  required: [module_id, arguments, context, annotations]
+  properties:
+    module_id:
+      type: string
+      description: "Target module's canonical ID"
+    arguments:
+      type: object
+      description: "The arguments that will be passed to the module"
+    context:
+      description: "Execution context (trace_id, identity, call_chain)"
+    annotations:
+      description: "Module's ModuleAnnotations (requires_approval is guaranteed true)"
+    description:
+      type: string
+      nullable: true
+      description: "Module's human-readable description"
+    tags:
+      type: array
+      items: { type: string }
+      description: "Module's tags"
+```
+
+#### 7.3.2 ApprovalResult
+
+```yaml
+ApprovalResult:
+  type: object
+  required: [status]
+  properties:
+    status:
+      type: string
+      enum: [approved, rejected, timeout, pending]
+      description: "Approval decision"
+    approved_by:
+      type: string
+      nullable: true
+      description: "Identifier of the approver (human, agent, policy)"
+    reason:
+      type: string
+      nullable: true
+      description: "Reason for rejection or additional context"
+    approval_id:
+      type: string
+      nullable: true
+      description: "Identifier for async approval tracking (Phase B)"
+    metadata:
+      type: object
+      nullable: true
+      description: "Additional metadata from the approval process"
+```
+
+### 7.4 Executor Integration (Step 4.5)
+
+The Approval Gate is inserted into the Executor's pipeline between Step 4 (ACL Enforcement) and Step 5 (Input Validation):
+
+```
+Executor Pipeline (updated):
+  Step 1: Context Creation
+  Step 2: Safety Checks
+  Step 3: Module Lookup
+  Step 4: ACL Enforcement
+  Step 4.5: Approval Gate        ← NEW
+  Step 5: Input Validation
+  Step 6: Middleware Before Chain
+  Step 7: Module Execution
+  Step 8: Output Validation
+  Step 9: Middleware After Chain
+  Step 10: Result Return
+```
+
+**Step 4.5 Algorithm:**
+
+```
+Algorithm: approval_gate(module, arguments, context, approval_handler)
+
+Input:
+  module         — Resolved module instance
+  arguments      — Call arguments
+  context        — Execution context (with identity)
+  approval_handler — Configured ApprovalHandler or null
+
+Behavior:
+  1. IF approval_handler is null → SKIP (no enforcement)
+  2. LET annotations = module.annotations
+  3. IF annotations is null OR annotations.requires_approval is false → SKIP
+  4. IF arguments contains "_approval_token":
+       a. LET token = arguments.pop("_approval_token")
+       b. LET result = approval_handler.check_approval(token)
+     ELSE:
+       a. LET request = ApprovalRequest(module_id, arguments, context, annotations, ...)
+       b. LET result = approval_handler.request_approval(request)
+  5. SWITCH result.status:
+       "approved" → CONTINUE to Step 5
+       "rejected" → THROW ApprovalDeniedError(result)
+       "timeout"  → THROW ApprovalTimeoutError(result)
+       "pending"  → THROW ApprovalPendingError(result)
+```
+
+**Key behaviors:**
+- When no `ApprovalHandler` is configured, the gate is **completely skipped** — backward compatible with existing code.
+- The `_approval_token` mechanism (Phase B) allows clients to retry after external approval without re-triggering the approval flow.
+- The `_approval_token` key **must** be removed from arguments before passing to subsequent steps.
+
+### 7.5 Error Types
+
+Implementations **must** define the following error types under `ModuleError`:
+
+```yaml
+approval_error_codes:
+  APPROVAL_DENIED:
+    description: "Approval was explicitly rejected"
+    http_status: 403
+  APPROVAL_TIMEOUT:
+    description: "Approval request timed out without response"
+    http_status: 408
+  APPROVAL_PENDING:
+    description: "Approval is pending — retry with _approval_token after approval"
+    http_status: 202
+```
+
+Error hierarchy addition:
+
+```
+ModuleError
+├── ...existing errors...
+├── ApprovalError              # Base class for all approval errors
+│   ├── ApprovalDeniedError    # APPROVAL_DENIED — Explicitly rejected
+│   ├── ApprovalTimeoutError   # APPROVAL_TIMEOUT — No response within timeout
+│   └── ApprovalPendingError   # APPROVAL_PENDING — Awaiting external approval
+```
+
+Each approval error **must** carry a `result` field containing the full `ApprovalResult`.
+
+### 7.6 Built-in Handlers
+
+Implementations **should** provide these built-in handlers:
+
+| Handler | Behavior | Use Case |
+|---------|----------|----------|
+| `AlwaysDenyHandler` | Always returns `rejected` | Default safe behavior when no handler configured but enforcement desired |
+| `AutoApproveHandler` | Always returns `approved` | Testing and development |
+| `CallbackApprovalHandler` | Delegates to a user-provided async callback | Custom approval logic |
+
+### 7.7 Protocol Bridge Handlers
+
+Protocol bridges (such as apcore-mcp, apcore-a2a) **should** provide handlers that leverage their protocol's interaction capabilities:
+
+| Bridge | Handler | Mechanism |
+|--------|---------|-----------|
+| apcore-mcp | `ElicitationApprovalHandler` | Uses MCP Elicitation protocol to show confirmation dialog in MCP clients |
+| apcore-a2a | `A2AApprovalHandler` | Uses A2A protocol interaction to request confirmation from calling agent |
+
+These handlers are **not** part of the apcore core specification — they are provided by the respective bridge packages.
+
+### 7.8 Phased Implementation
+
+#### Phase A: Synchronous Approval (Required)
+
+- `request_approval()` blocks until a decision is reached or timeout occurs.
+- Suitable for interactive scenarios (MCP client dialogs, agent-to-agent confirmation).
+- **All conformant implementations must support Phase A.**
+
+#### Phase B: Asynchronous Approval (Optional)
+
+- `request_approval()` may return `status: "pending"` with an `approval_id`.
+- Client retries the tool call with `_approval_token` in arguments.
+- `check_approval(approval_id)` returns the current status.
+- Suitable for long-running approval workflows (Slack, email, dashboard).
+- **Phase B is optional but recommended for production deployments.**
+
+### 7.9 Conformance
+
+| Level | Requirement |
+|-------|-------------|
+| **Level 1 (Basic)** | `ApprovalHandler` protocol defined; Executor skips gate when handler is null |
+| **Level 2 (Standard)** | Step 4.5 implemented in `call()`, `call_async()`, and `stream()` paths; `AlwaysDenyHandler` and `AutoApproveHandler` provided |
+| **Level 3 (Full)** | Phase B support (`check_approval`, `_approval_token`); `CallbackApprovalHandler` provided; approval audit events emitted |
+
+---
+
+## 8. Error Handling Specification (Error Handling Specification)
+
+### 8.1 Unified Error Format
 
 All errors must follow unified format:
 
@@ -2834,7 +3068,7 @@ error_format:
       format: datetime
 ```
 
-### 7.2 Framework Error Codes
+### 8.2 Framework Error Codes
 
 ```yaml
 error_codes:
@@ -2917,9 +3151,20 @@ error_codes:
   CALL_FREQUENCY_EXCEEDED:
     description: "Same module call frequency exceeded limit"
     http_status: 508
+
+  # Approval-related (APPROVAL_*)
+  APPROVAL_DENIED:
+    description: "Approval was explicitly rejected"
+    http_status: 403
+  APPROVAL_TIMEOUT:
+    description: "Approval request timed out without response"
+    http_status: 408
+  APPROVAL_PENDING:
+    description: "Approval is pending, retry with _approval_token"
+    http_status: 202
 ```
 
-### 7.3 Error Propagation
+### 8.3 Error Propagation
 
 Implementations **must** propagate errors according to the following algorithm:
 
@@ -2970,7 +3215,7 @@ error_propagation:
     - "**Must** support error chain tracing"
 ```
 
-### 7.4 Custom Error Codes
+### 8.4 Custom Error Codes
 
 Modules can define their own error codes:
 
@@ -3024,7 +3269,7 @@ custom_error_codes:
       3. Return all_codes (complete error code registry)
 ```
 
-### 7.5 Error Response Format
+### 8.5 Error Response Format
 
 ```yaml
 # Standard error response
@@ -3040,7 +3285,7 @@ error_response:
   cause: null  # Or nested error object
 ```
 
-### 7.6 Retry Semantics
+### 8.6 Retry Semantics
 
 Implementations **must not** default retry failed module invocations. Retry behavior **must** be explicitly controlled by caller or middleware.
 
@@ -3065,7 +3310,7 @@ Retry middleware (if implemented) **should**:
 - Use exponential backoff strategy
 - Set max retry count limit (**should** not exceed 5 times)
 
-### 7.7 Error Hierarchy
+### 8.7 Error Hierarchy
 
 All framework errors **must** extend from a single `ModuleError` base class using a flat hierarchy. Implementations use a flat hierarchy under `ModuleError` for simplicity.
 
@@ -3095,6 +3340,10 @@ ModuleError (base error for all framework errors)
 ├── CallDepthExceededError         # CALL_DEPTH_EXCEEDED — Call depth exceeded limit
 ├── CircularCallError              # CIRCULAR_CALL — Circular call
 ├── CallFrequencyExceededError     # CALL_FREQUENCY_EXCEEDED — Call frequency exceeded limit
+├── ApprovalError                  # Base class for approval errors (§7)
+│   ├── ApprovalDeniedError        # APPROVAL_DENIED — Approval explicitly rejected
+│   ├── ApprovalTimeoutError       # APPROVAL_TIMEOUT — Approval timed out
+│   └── ApprovalPendingError       # APPROVAL_PENDING — Approval pending (Phase B)
 ├── InvalidInputError              # GENERAL_INVALID_INPUT — Invalid input
 ├── InternalError                  # GENERAL_INTERNAL_ERROR — Internal error
 └── NotImplementedError            # GENERAL_NOT_IMPLEMENTED — Feature not implemented
@@ -3104,9 +3353,9 @@ Each error class carries a `code` attribute set to the corresponding error code 
 
 ---
 
-## 8. Configuration Specification (Configuration Specification)
+## 9. Configuration Specification (Configuration Specification)
 
-### 8.1 Framework Configuration
+### 9.1 Framework Configuration
 
 apcore.yaml is the core configuration file of the framework. Implementations **must** validate configuration files according to the following JSON Schema.
 
@@ -3211,7 +3460,7 @@ Implementations **must** follow these default value conventions:
 - `timeout = 0` means disable that timeout, implementations **should** log WARN
 - `max_call_depth` and `max_module_repeat` used for call chain safety checks (algorithm A20)
 
-### 8.2 Environment Variable Override
+### 9.2 Environment Variable Override
 
 Implementations **must** support overriding configuration file values through environment variables.
 
@@ -3242,7 +3491,7 @@ Examples:
   observability.tracing.enabled → APCORE_OBSERVABILITY_TRACING_ENABLED
 ```
 
-### 8.3 Configuration Validation Algorithm
+### 9.3 Configuration Validation Algorithm
 
 Implementations **must** validate configuration at startup:
 
@@ -3274,9 +3523,9 @@ Steps:
 
 ---
 
-## 9. Observability Specification (Observability Specification)
+## 10. Observability Specification (Observability Specification)
 
-### 9.1 Tracing
+### 10.1 Tracing
 
 Based on OpenTelemetry specification:
 
@@ -3306,7 +3555,7 @@ tracing:
     - "Use W3C Trace Context for HTTP calls"
 ```
 
-### 9.2 Logging
+### 10.2 Logging
 
 ```yaml
 logging:
@@ -3327,7 +3576,7 @@ logging:
     - "Passwords, tokens not logged"
 ```
 
-### 9.3 Metrics
+### 10.3 Metrics
 
 ```yaml
 metrics:
@@ -3344,7 +3593,7 @@ metrics:
     labels: [module_id, error_code]
 ```
 
-### 9.4 Trace ID Format
+### 10.4 Trace ID Format
 
 trace_id **must** use UUID v4 format. In distributed scenarios, **recommended** to be compatible with W3C Trace Context standard.
 
@@ -3363,7 +3612,7 @@ trace_id_spec:
     - "MUST NOT allow externally provided unvalidated trace_id"
 ```
 
-### 9.5 Sensitive Data Redaction
+### 10.5 Sensitive Data Redaction
 
 Implementations **must** redact fields marked as `x-sensitive` in logs and trace outputs.
 
@@ -3392,7 +3641,7 @@ Steps:
 Complexity: O(n), where n is number of data fields
 ```
 
-### 9.6 Sampling Strategy
+### 10.6 Sampling Strategy
 
 Implementations **should** support the following sampling strategies:
 
@@ -3405,7 +3654,7 @@ Implementations **should** support the following sampling strategies:
 
 Sampling decision **must** be made at call chain root node, child calls **must** inherit parent call's sampling decision.
 
-### 9.7 Span Naming Convention
+### 10.7 Span Naming Convention
 
 Implementations **should** follow these Span naming conventions:
 
@@ -3432,9 +3681,9 @@ span_naming:
 
 ---
 
-## 10. Extension Mechanism (Extension Mechanism)
+## 11. Extension Mechanism (Extension Mechanism)
 
-### 10.1 Middleware/Interceptors
+### 11.1 Middleware/Interceptors
 
 ```yaml
 middleware:
@@ -3455,7 +3704,7 @@ middleware:
       can_retry: true
 ```
 
-### 10.2 Middleware Registration and Priority
+### 11.2 Middleware Registration and Priority
 
 ```yaml
 middleware_registration:
@@ -3509,7 +3758,7 @@ middleware_registration:
     response: "Module → [100] → [800] → [900] → [1000]"
 ```
 
-### 10.3 Custom Extension Points
+### 11.3 Custom Extension Points
 
 ```yaml
 extension_points:
@@ -3586,7 +3835,7 @@ extension_points:
 >
 > Implementations declaring Level 2 conformance use the actual names (`discoverer`, `middleware`, `acl`, `span_exporter`, `module_validator`) in `ExtensionManager`.
 
-### 10.4 Framework Built-in Middleware
+### 11.4 Framework Built-in Middleware
 
 ```yaml
 builtin_middleware:
@@ -3626,7 +3875,7 @@ builtin_middleware:
           - "metrics"            # Disable metrics collection
 ```
 
-### 10.5 Middleware Execution State Machine
+### 11.5 Middleware Execution State Machine
 
 Middleware chain execution **must** follow this state machine:
 
@@ -3657,7 +3906,7 @@ Rules:
   - on_error phase: If middleware returns non-None → Use as fallback result, stop error propagation
 ```
 
-### 10.6 Extension Point Interface Formalization
+### 11.6 Extension Point Interface Formalization
 
 Implementations **should** support the following extension points, each **must** define clear interface contract:
 
@@ -3685,7 +3934,7 @@ Extension Point: Executor
 
 > **NOTE:** The interface contracts above use the original theoretical names. See the mapping table in §10.3 for the actual extension point names used in SDK implementations (`discoverer`, `middleware`, `acl`, `span_exporter`, `module_validator`).
 
-### 10.7 Extension Loading Order
+### 11.7 Extension Loading Order
 
 Implementations **must** load extensions according to the following algorithm:
 
@@ -3701,7 +3950,7 @@ Steps:
   3. If extension point has no available implementation → Use framework default implementation
 ```
 
-### 10.8 Edge Case Handling
+### 11.8 Edge Case Handling
 
 Implementations **must** handle middleware edge cases according to the following table:
 
@@ -3748,9 +3997,9 @@ Implementations **must** handle middleware edge cases according to the following
 
 ---
 
-## 11. SDK Implementation Guide (SDK Implementation Guide)
+## 12. SDK Implementation Guide (SDK Implementation Guide)
 
-### 11.1 Required Core Components
+### 12.1 Required Core Components
 
 | Component | Responsibility | Phase |
 |------|------|------|
@@ -3763,7 +4012,7 @@ Implementations **must** handle middleware edge cases according to the following
 | `TracingProvider` | Trace context | Phase 2 |
 | `MetricsCollector` | Metrics collection | Phase 2 |
 
-### 11.2 Core Component Interface Contracts
+### 12.2 Core Component Interface Contracts
 
 Following are formalized interface definitions for each core component (language-agnostic pseudocode). All SDK implementations **must** provide equivalent implementations of these interfaces.
 
@@ -4001,7 +4250,7 @@ When bridging `Executor.stream()` to MCP, implementations SHOULD use the standar
 3. The final `CallToolResult` contains the complete accumulated result.
 4. If the client does not provide `progressToken`, the bridge accumulates internally and returns an atomic result.
 
-### 11.3 Cross-language Implementation Requirements
+### 12.3 Cross-language Implementation Requirements
 
 | Requirement | Python | Rust | Go | Java | TypeScript |
 |------|--------|------|----|------|------------|
@@ -4018,7 +4267,7 @@ When bridging `Executor.stream()` to MCP, implementations SHOULD use the standar
 | Structured logging | MUST | MUST | MUST | MUST | MUST |
 | Error code specification | MUST | MUST | MUST | MUST | MUST |
 
-### 11.4 Consistency Testing Requirements
+### 12.4 Consistency Testing Requirements
 
 Each SDK implementation **must** pass the following consistency test suite to ensure cross-language behavior consistency:
 
@@ -4062,7 +4311,7 @@ Consistency Test Suite:
    - Structured log format
 ```
 
-### 11.5 Implementation Roadmap
+### 12.5 Implementation Roadmap
 
 ```
 Phase 1: Core MVP
@@ -4088,7 +4337,7 @@ Phase 4: Advanced
 └── Performance optimization
 ```
 
-### 11.6 Language-specific Guidelines
+### 12.6 Language-specific Guidelines
 
 #### Python
 - Schema: Pydantic v2
@@ -4110,7 +4359,7 @@ Phase 4: Advanced
 - Async: CompletableFuture / Virtual Threads
 - Package management: Maven / Gradle
 
-### 11.7 Concurrency Model Specification
+### 12.7 Concurrency Model Specification
 
 This section defines apcore's concurrency model and thread safety requirements, ensuring SDK implementers correctly implement the framework in multi-threaded/coroutine environments.
 
@@ -4367,9 +4616,9 @@ class DatabaseModule:
 
 ---
 
-## 12. Versioning (Versioning)
+## 13. Versioning (Versioning)
 
-### 12.1 Version Number Specification
+### 13.1 Version Number Specification
 
 ```
 {major}.{minor}.{patch}[-{prerelease}]
@@ -4380,13 +4629,13 @@ patch: Backward-compatible bug fixes
 prerelease: draft, alpha, beta, rc
 ```
 
-### 12.2 Compatibility Promise
+### 13.2 Compatibility Promise
 
 - **Within major version**: Protocol backward compatible
 - **Schema evolution**: Support version declaration, old version Schema readable by new SDK
 - **Deprecation policy**: Keep at least 2 minor versions for deprecation period
 
-### 12.3 Version Negotiation Algorithm
+### 13.3 Version Negotiation Algorithm
 
 When SDK loads configuration or Schema, **must** perform version negotiation:
 
@@ -4415,7 +4664,7 @@ Steps:
   7. Return effective_version
 ```
 
-### 12.4 Schema Migration
+### 13.4 Schema Migration
 
 When Schema version changes, implementations **should** support automatic migration:
 
@@ -4449,7 +4698,7 @@ Migration types:
   - change_type:   Type change (only allowed in major version changes)
 ```
 
-### 12.5 Backward/Forward Compatibility Matrix
+### 13.5 Backward/Forward Compatibility Matrix
 
 | Change Type | Backward Compatible | Forward Compatible | Version Impact | Description |
 |----------|----------|----------|----------|------|
@@ -4475,7 +4724,7 @@ Migration types:
 
 ---
 
-## 13. Appendix
+## 14. Appendix
 
 ### A. Complete Example Project Structure
 
@@ -4661,3 +4910,4 @@ apcore supports three module definition methods to meet different scenario needs
 | 1.0.0-draft | 2026-02-05 | Initial draft |
 | 1.1.0-draft | 2026-02-07 | Added §5.11 Function-based Module Definition, §5.12 External Schema Binding, Appendix E Module Definition Methods Comparison |
 | 1.2.0-draft | 2026-02-09 | Revised §4.3 supplemented x-llm-description usage guide; Added §4.16 Strict Mode Export, §4.17 Export Profile |
+| 1.3.0-draft | 2026-03-01 | Added §7 Approval System (ApprovalHandler protocol, Executor Step 4.5, error types, built-in and protocol bridge handlers, phased implementation, conformance levels); Updated §4.4 requires_approval annotation to reference runtime enforcement; Added APPROVAL_DENIED/TIMEOUT/PENDING error codes to §8; Renumbered §7–§13 → §8–§14 |

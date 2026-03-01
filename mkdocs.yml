@@ -68,6 +68,7 @@ nav:
       - Executor API: api/executor-api.md
   - Feature Specifications:
       - ACL System: features/acl-system.md
+      - Approval System: features/approval-system.md
       - Core Executor: features/core-executor.md
       - Decorator & YAML Bindings: features/decorator-bindings.md
       - Middleware System: features/middleware-system.md
