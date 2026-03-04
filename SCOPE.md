@@ -203,7 +203,7 @@ Use these scenarios to validate whether our boundaries are correct:
 
 ```
 apcore/
-├── PROTOCOL_SPEC.md          # Core protocol specification (13 chapters)
+├── PROTOCOL_SPEC.md          # Core protocol specification (14 chapters)
 ├── SCOPE.md                  # Scope definition
 ├── README.md                 # Project introduction
 └── docs/                     # Detailed documentation

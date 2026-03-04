@@ -1,17 +1,58 @@
 # Creating Modules Guide
 
-> Build an apcore module from scratch.
+> Build or upgrade modules to be AI-perceivable.
 
-## Four Module Definition Approaches
+## Choose Your Integration Path
 
-apcore supports four ways to create modules - choose the one that fits your scenario:
+apcore supports four ways to create modules — choose the one that fits your scenario:
 
 | Approach | Use Case | Code Intrusiveness | Jump To |
 |------|---------|-----------|------|
-| **Class-based** (Class Definition) | New module development | High (inherits base class) | [Quick Start](#quick-start) |
+| **Class-based** (Class Definition) | New module development | High (implements Module protocol) | [Quick Start](#quick-start) |
 | **`@module` Decorator** | Functions where you can modify source code | Low (add one line decorator) | [module() Registration](#module-registration) |
 | **`module()` Function Call** | Wrapping existing classes/methods | Very Low (no changes to original function) | [module() Registration](#module-registration) |
 | **External Binding** (External Binding) | Zero-modification integration of existing apps | None (no source code changes) | [External Schema Binding](#external-schema-binding-yaml) |
+
+These can also be grouped into two integration paths:
+
+1.  **Native SDK (Recommended)**: Best for new projects. Full type safety and lifecycle control. (Class-based, `@module` Decorator)
+2.  **Zero-Intrusion Patch**: Best for legacy code. Upgrade via function calls or YAML bindings **without rewriting business logic**. (`module()` Function Call, External Binding)
+
+---
+
+## Designing for the AI Lifecycle
+
+To build a high-quality module, think through the **AI Collaboration Lifecycle**. Your module's metadata should guide the Agent through every stage of its task.
+
+| Lifecycle Stage | Field / Tool | Purpose |
+| :--- | :--- | :--- |
+| **1. Discovery** | `description` | Helps the Agent find the right tool for its intent. |
+| **2. Strategy** | `metadata` | Teaches the Agent *when* and *how* to use the tool correctly. |
+| **3. Governance** | `requires_approval` | Sets the safety boundary for sensitive operations. |
+| **4. Recovery** | `ai_guidance` | Provides a clear path for the Agent to fix errors autonomously. |
+
+---
+
+## Intent-Oriented Tips
+
+### 1. Discovery: Focus on "What" not "How"
+Your module's `description` is its **Identity**. It should answer: *"What problem does this solve?"* rather than *"What does the code do?"*
+- **❌ Technical**: "Executes a SQL SELECT query on the users table."
+- **✅ Intent-Oriented**: "Find a user profile by their email address or unique ID."
+
+### 2. Strategy: Share Your Wisdom
+Use `metadata` to give the Agent tactical guidance (the **Wisdom** layer):
+- `x-when-to-use`: Describe the ideal scenario for this module.
+- `x-when-not-to-use`: Explicitly warn the Agent of misuse to prevent hallucinations.
+- `x-common-mistakes`: Warn the Agent about pitfalls others have encountered.
+
+### 3. Governance: Set Guardrails
+Use **Annotations** to define your module's **Personality**.
+- For sensitive operations (spending money, deleting data), set `requires_approval: true`. This ensures a human always has the final word.
+
+### 4. Recovery: Empower Self-Healing
+When an error occurs, use the `ai_guidance` field in your `ModuleError` to tell the Agent **exactly how to fix it**.
+- **Example**: "The email format is invalid. Please ask the user to provide a valid email address like 'name@example.com' and try again."
 
 ---
 
@@ -25,52 +66,68 @@ my-project/
 ├── extensions/           # Extensions directory
 │   └── executor/         # Execution layer
 │       └── email/        # Email functionality
-│           └── send_email.py   # Module file
-└── schemas/              # Schema definitions (optional, used for cross-language)
+│           └── send_email.py # Python module OR
+│           └── send_email.ts # TypeScript module
+└── schemas/              # Schema definitions (optional)
 ```
 
 ### 2. Create Module File
 
-```python
-# extensions/executor/email/send_email.py
+=== "Python"
 
-from pydantic import BaseModel, Field
-from apcore import Module, Context
+    ```python
+    # extensions/executor/email/send_email.py
+    from pydantic import BaseModel, Field
+    from apcore import Module, Context
 
+    class SendEmailInput(BaseModel):
+        to: str = Field(..., description="Recipient email address")
+        subject: str = Field(..., description="Email subject")
+        body: str = Field(..., description="Email body")
 
-# Step 1: Define input Schema
-class SendEmailInput(BaseModel):
-    """Input parameters for sending email"""
-    to: str = Field(..., description="Recipient email address")
-    subject: str = Field(..., description="Email subject")
-    body: str = Field(..., description="Email body")
+    class SendEmailOutput(BaseModel):
+        success: bool = Field(..., description="Whether successful")
+        message_id: str | None = Field(None, description="Message ID")
 
+    class SendEmailModule(Module):
+        """Send email module"""
+        input_schema = SendEmailInput
+        output_schema = SendEmailOutput
 
-# Step 2: Define output Schema
-class SendEmailOutput(BaseModel):
-    """Output result for sending email"""
-    success: bool = Field(..., description="Whether successful")
-    message_id: str | None = Field(None, description="Message ID")
+        def execute(self, inputs: dict, context: Context) -> dict:
+            # Implement logic here
+            return {"success": True, "message_id": "msg_123"}
+    ```
 
+=== "TypeScript"
 
-# Step 3: Create module
-class SendEmailModule(Module):
-    """Send email module"""  # This is the description
+    ```typescript
+    // extensions/executor/email/sendEmail.ts
+    import { Type } from '@sinclair/typebox';
+    import { FunctionModule } from 'apcore-js';
 
-    input_schema = SendEmailInput
-    output_schema = SendEmailOutput
+    const SendEmailInput = Type.Object({
+      to: Type.String({ description: 'Recipient email address' }),
+      subject: Type.String({ description: 'Email subject' }),
+      body: Type.String({ description: 'Email body' }),
+    });
 
-    def execute(self, inputs: dict, context: Context) -> dict:
-        # Implement sending logic
-        to = inputs["to"]
-        subject = inputs["subject"]
-        body = inputs["body"]
+    const SendEmailOutput = Type.Object({
+      success: Type.Boolean({ description: 'Whether successful' }),
+      message_id: Type.Optional(Type.String({ description: 'Message ID' })),
+    });
 
-        # ... send email ...
-        message_id = "msg_123"
-
-        return {"success": True, "message_id": message_id}
-```
+    export default new FunctionModule({
+      moduleId: 'executor.email.send_email',
+      description: 'Send email module',
+      inputSchema: SendEmailInput,
+      outputSchema: SendEmailOutput,
+      execute: async (inputs) => {
+        // Implement logic here
+        return { success: true, message_id: 'msg_123' };
+      },
+    });
+    ```
 
 ### 3. Module ID Auto-Generation
 
@@ -276,29 +333,54 @@ extensions/
 
 ### Step 4: Use Module
 
-```python
-from apcore import Registry, Executor
+=== "Python"
 
-# 1. Create Registry and discover modules
-registry = Registry(extensions_dir="./extensions")
-registry.discover()
+    ```python
+    from apcore import Registry, Executor
 
-# 2. Create Executor
-executor = Executor(registry)
+    # 1. Create Registry and discover modules
+    registry = Registry(extensions_dir="./extensions")
+    registry.discover()
 
-# 3. Call module
-result = executor.call(
-    module_id="executor.email.send_email",
-    inputs={
-        "to": "user@example.com",
-        "subject": "Hello",
-        "body": "World"
-    }
-)
+    # 2. Create Executor
+    executor = Executor(registry)
 
-print(result)
-# {"success": True, "message_id": "msg_123", ...}
-```
+    # 3. Call module
+    result = executor.call(
+        module_id="executor.email.send_email",
+        inputs={
+            "to": "user@example.com",
+            "subject": "Hello",
+            "body": "World"
+        }
+    )
+    print(result)
+    ```
+
+=== "TypeScript"
+
+    ```typescript
+    import { Registry, Executor } from 'apcore-js';
+
+    // 1. Create Registry and discover modules
+    const registry = new Registry({ extensionsDir: './extensions' });
+    await registry.discover();
+
+    // 2. Create Executor
+    const executor = new Executor({ registry });
+
+    // 3. Call module
+    const result = await executor.call(
+      'executor.email.send_email',
+      {
+        to: 'user@example.com',
+        subject: 'Hello',
+        body: 'World'
+      }
+    );
+    console.log(result);
+    ```
+
 
 ---
 
@@ -646,7 +728,7 @@ class TestSendEmailModule:
 | Recommendation | Explanation |
 |------|------|
 | Reuse connections | Create connection pool in `on_load()`, close in `on_unload()` |
-| Avoid blocking | Long operations **should** use `execute_async()` |
+| Avoid blocking | Long operations **should** use `async def execute()` |
 | Control data size | `context.data` is shared along call chain, avoid storing large amounts of data |
 | Set timeouts | External calls **must** set reasonable timeout |
 | Idempotent design | Modules marked as `idempotent=True` should ensure repeated calls are safe |
@@ -730,7 +812,7 @@ async def send_email(
 
     Send emails asynchronously via SMTP.
     """
-    # async def automatically maps to execute_async
+    # async def is auto-detected by the framework's async execution path
     print(f"trace_id: {context.trace_id}")
     return {"success": True, "message_id": "msg_123"}
 ```

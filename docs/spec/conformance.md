@@ -36,14 +36,14 @@ Level 0 defines the minimal viable implementation of apcore. SDKs reaching this 
 |------|------|---------|
 | **Module interface** | Module base class/interface, includes `execute()`, `input_schema`, `output_schema`, `description` | PROTOCOL_SPEC §5.6 |
 | **Schema validation** | Input/output validation based on JSON Schema Draft 2020-12, supports `type`, `properties`, `required`, `enum`, `$ref` (local references) | PROTOCOL_SPEC §4.2 |
-| **Registry** | Module discovery (directory scanning), registration, retrieval (`discover()`, `get()`, `list()`) | PROTOCOL_SPEC §11.2 |
-| **Executor** | Module call execution, includes input validation, module location, execution, output validation | PROTOCOL_SPEC §11.2 |
+| **Registry** | Module discovery (directory scanning), registration, retrieval (`discover()`, `get()`, `list()`) | PROTOCOL_SPEC §12.2 |
+| **Executor** | Module call execution, includes input validation, module location, execution, output validation | PROTOCOL_SPEC §12.2 |
 | **Directory as ID** | `directory_to_canonical_id()` algorithm implementation, directory path automatically maps to Canonical ID | PROTOCOL_SPEC §2.1 |
 | **ID format validation** | EBNF syntax validation for Canonical ID | PROTOCOL_SPEC §2.7 |
 | **ID conflict detection** | `detect_id_conflicts()` algorithm, detects duplicate IDs and reserved word conflicts | PROTOCOL_SPEC §2.6 |
-| **Basic error handling** | Unified error format (`code`, `message`), framework error codes (MODULE_*, SCHEMA_*, GENERAL_*) | PROTOCOL_SPEC §7.1, §7.2 |
-| **Error propagation** | `propagate_error()` algorithm, module errors wrapped as ModuleError | PROTOCOL_SPEC §7.3 |
-| **Configuration loading** | `apcore.yaml` basic configuration loading and validation | PROTOCOL_SPEC §8.1 |
+| **Basic error handling** | Unified error format (`code`, `message`), framework error codes (MODULE_*, SCHEMA_*, GENERAL_*) | PROTOCOL_SPEC §8.1, §8.2 |
+| **Error propagation** | `propagate_error()` algorithm, module errors wrapped as ModuleError | PROTOCOL_SPEC §8.3 |
+| **Configuration loading** | `apcore.yaml` basic configuration loading and validation | PROTOCOL_SPEC §9.1 |
 | **Schema loading** | YAML Schema file loading and parsing | PROTOCOL_SPEC §4.8 |
 | **Scanning algorithm** | `scan_extensions()` directory scanning algorithm | PROTOCOL_SPEC §3.6 |
 | **Hidden file filtering** | Ignore hidden files and special directories when scanning | PROTOCOL_SPEC §3.5 |
@@ -59,7 +59,7 @@ Level 0 defines the minimal viable implementation of apcore. SDKs reaching this 
 | **Entry point auto-inference** | `resolve_entry_point()` algorithm | PROTOCOL_SPEC §5.2 |
 | **Dependency resolution** | `resolve_dependencies()` topological sort algorithm | PROTOCOL_SPEC §5.3 |
 | **Schema version declaration** | `version` field support in Schema files | PROTOCOL_SPEC §4.11 |
-| **Environment variable override** | `APCORE_*` environment variables override configuration | PROTOCOL_SPEC §8.2 |
+| **Environment variable override** | `APCORE_*` environment variables override configuration | PROTOCOL_SPEC §9.2 |
 | **Schema $ref cross-file references** | `resolve_ref()` algorithm, supports relative path references | PROTOCOL_SPEC §4.10 |
 | **`additionalProperties` validation** | additionalProperties handling in input_schema | PROTOCOL_SPEC §4.2 |
 
@@ -102,19 +102,19 @@ Level 1 adds permission control, middleware, basic observability, and structured
 | **ACL engine** | Permission rule loading, pattern matching (`match_pattern()`), rule evaluation (`evaluate_acl()`) | PROTOCOL_SPEC §6.2, §6.3 |
 | **ACL default policy** | Support `default_effect: deny \| allow` | PROTOCOL_SPEC §6.1 |
 | **ACL edge cases** | When caller_id is null, treat as `@external`, empty rules use default policy | PROTOCOL_SPEC §6.5 |
-| **Middleware framework** | Onion model middleware chain, supports `before`, `after`, `on_error` hooks | PROTOCOL_SPEC §10.1 |
-| **Middleware priority** | Higher numbers execute first | PROTOCOL_SPEC §10.2 |
-| **Built-in middleware (required)** | `schema_validation` (priority 1000), `acl_check` (priority 999) | PROTOCOL_SPEC §10.4 |
-| **Trace ID** | `trace_id` generation (UUID v4), propagation (child calls inherit) | PROTOCOL_SPEC §9.4 |
-| **Structured logging** | JSON format logs, includes `timestamp`, `level`, `message`, `trace_id`, `module_id` | PROTOCOL_SPEC §9.2 |
+| **Middleware framework** | Onion model middleware chain, supports `before`, `after`, `on_error` hooks | PROTOCOL_SPEC §11.1 |
+| **Middleware priority** | Higher numbers execute first | PROTOCOL_SPEC §11.2 |
+| **Built-in middleware (required)** | `schema_validation` (priority 1000), `acl_check` (priority 999) | PROTOCOL_SPEC §11.4 |
+| **Trace ID** | `trace_id` generation (UUID v4), propagation (child calls inherit) | PROTOCOL_SPEC §10.4 |
+| **Structured logging** | JSON format logs, includes `timestamp`, `level`, `message`, `trace_id`, `module_id` | PROTOCOL_SPEC §10.2 |
 | **Context complete implementation** | `trace_id`, `caller_id`, `call_chain`, `executor`, `identity`, `data` | PROTOCOL_SPEC §5.7 |
 | **Circular call detection** | Detect circular calls based on `call_chain` | PROTOCOL_SPEC §5.7 |
 | **Call depth limit** | Limit maximum call depth based on `call_chain` | PROTOCOL_SPEC §5.7 |
-| **Error hierarchy system** | Flat error hierarchy under `ModuleError` base class | PROTOCOL_SPEC §7.7 |
-| **Custom error codes** | Module custom error code registration and collision detection | PROTOCOL_SPEC §7.4 |
+| **Error hierarchy system** | Flat error hierarchy under `ModuleError` base class | PROTOCOL_SPEC §8.7 |
+| **Custom error codes** | Module custom error code registration and collision detection | PROTOCOL_SPEC §8.4 |
 | **ID Map all-language conversion** | Support ID conversion for all five languages | PROTOCOL_SPEC §2.2 |
 | **Dependency resolution** | `resolve_dependencies()` topological sort and circular dependency detection | PROTOCOL_SPEC §5.3 |
-| **Configuration validation algorithm** | `validate_config()` complete implementation | PROTOCOL_SPEC §8.3 |
+| **Configuration validation algorithm** | `validate_config()` complete implementation | PROTOCOL_SPEC §9.3 |
 
 ### 3.3 Should Implement (SHOULD)
 
@@ -122,12 +122,12 @@ Level 1 adds permission control, middleware, basic observability, and structured
 |------|------|---------|
 | **ACL pattern specificity** | `calculate_specificity()` algorithm | PROTOCOL_SPEC §6.4 |
 | **ACL audit logs** | Record permission check results, including denied calls | PROTOCOL_SPEC §6.1 |
-| **Built-in middleware (default enabled)** | `tracing`, `logging`, `metrics`, `error_wrapper` | PROTOCOL_SPEC §10.4 |
-| **Middleware disabling** | Disable default-enabled built-in middleware via configuration | PROTOCOL_SPEC §10.4 |
-| **Sensitive data redaction** | `redact_sensitive()` algorithm, redact `x-sensitive` fields in logs | PROTOCOL_SPEC §9.5 |
-| **Trace Span** | Span creation and ending, follow naming conventions | PROTOCOL_SPEC §9.7 |
-| **Metrics collection** | Basic counter and histogram metrics | PROTOCOL_SPEC §9.3 |
-| **Retry semantics** | Classify error code retryability and reject inappropriate retries | PROTOCOL_SPEC §7.6 |
+| **Built-in middleware (default enabled)** | `tracing`, `logging`, `metrics`, `error_wrapper` | PROTOCOL_SPEC §11.4 |
+| **Middleware disabling** | Disable default-enabled built-in middleware via configuration | PROTOCOL_SPEC §11.4 |
+| **Sensitive data redaction** | `redact_sensitive()` algorithm, redact `x-sensitive` fields in logs | PROTOCOL_SPEC §10.5 |
+| **Trace Span** | Span creation and ending, follow naming conventions | PROTOCOL_SPEC §10.7 |
+| **Metrics collection** | Basic counter and histogram metrics | PROTOCOL_SPEC §10.3 |
+| **Retry semantics** | Classify error code retryability and reject inappropriate retries | PROTOCOL_SPEC §8.6 |
 | **Annotation conflict rules** | YAML takes precedence over code, code takes precedence over defaults | PROTOCOL_SPEC §4.12 |
 | **Schema validation error format** | Structured validation errors (path, message, constraint, expected, actual) | PROTOCOL_SPEC §4.13 |
 
@@ -135,9 +135,9 @@ Level 1 adds permission control, middleware, basic observability, and structured
 
 | Component | Responsibility | Reference Section |
 |------|------|---------|
-| **Middleware code registration** | Runtime dynamic middleware registration | PROTOCOL_SPEC §10.2 |
-| **W3C Trace Context** | Distributed tracing standard compliance | PROTOCOL_SPEC §9.4 |
-| **Sampling strategies** | Full/proportional/error-first sampling | PROTOCOL_SPEC §9.6 |
+| **Middleware code registration** | Runtime dynamic middleware registration | PROTOCOL_SPEC §11.2 |
+| **W3C Trace Context** | Distributed tracing standard compliance | PROTOCOL_SPEC §10.4 |
+| **Sampling strategies** | Full/proportional/error-first sampling | PROTOCOL_SPEC §10.6 |
 | **Module describe interface** | `describe()` method returns LLM-usable complete description | PROTOCOL_SPEC §5.6 |
 | **Symlink handling** | Configurable symlink following and cycle detection | PROTOCOL_SPEC §3.4 |
 
@@ -164,27 +164,27 @@ Level 2 adds all extension points, async modules, hot loading, and advanced obse
 
 | Component | Responsibility | Reference Section |
 |------|------|---------|
-| **Extension point framework** | All five extension points (discoverer, middleware, acl, span_exporter, module_validator) via `ExtensionManager` with `register()`, `get()`, `get_all()`, `unregister()`, `apply()`, `list_points()`. Note: these names map to actual runtime extension needs rather than the original theoretical design names (SchemaLoader, ModuleLoader, IDConverter, ACLChecker, Executor). | PROTOCOL_SPEC §10.3, §10.6 |
-| **Extension point chain** | `first_success`, `all`, `fallback` strategies | PROTOCOL_SPEC §10.3 |
-| **Extension loading order** | `load_extensions()` algorithm | PROTOCOL_SPEC §10.7 |
+| **Extension point framework** | All five extension points (discoverer, middleware, acl, span_exporter, module_validator) via `ExtensionManager` with `register()`, `get()`, `get_all()`, `unregister()`, `apply()`, `list_points()`. Note: these names map to actual runtime extension needs rather than the original theoretical design names (SchemaLoader, ModuleLoader, IDConverter, ACLChecker, Executor). | PROTOCOL_SPEC §11.3, §11.6 |
+| **Extension point chain** | `first_success`, `all`, `fallback` strategies | PROTOCOL_SPEC §11.3 |
+| **Extension loading order** | `load_extensions()` algorithm | PROTOCOL_SPEC §11.7 |
 | **Async modules** | `submit()`, `get_status()`, `cancel()`, `list_tasks()` via `AsyncTaskManager` | PROTOCOL_SPEC §5.8 |
 | **Async state machine** | State transition rules (PENDING → RUNNING → COMPLETED/FAILED/CANCELLED) via `TaskStatus` enum | PROTOCOL_SPEC §5.8 |
-| **Middleware state machine** | Complete state transitions (init → before → execute → after → done, with error branches) | PROTOCOL_SPEC §10.5 |
-| **Version negotiation** | `negotiate_version()` algorithm | PROTOCOL_SPEC §12.3 |
-| **Schema migration** | `migrate_schema()` algorithm | PROTOCOL_SPEC §12.4 |
-| **Compatibility matrix** | Backward/forward compatibility rules | PROTOCOL_SPEC §12.5 |
+| **Middleware state machine** | Complete state transitions (init → before → execute → after → done, with error branches) | PROTOCOL_SPEC §11.5 |
+| **Version negotiation** | `negotiate_version()` algorithm | PROTOCOL_SPEC §13.3 |
+| **Schema migration** | `migrate_schema()` algorithm | PROTOCOL_SPEC §13.4 |
+| **Compatibility matrix** | Backward/forward compatibility rules | PROTOCOL_SPEC §13.5 |
 | **Context serialization** | Cross-process Context JSON serialization/deserialization | PROTOCOL_SPEC §5.7 |
-| **All framework built-in middleware** | schema_validation, acl_check, tracing, logging, metrics, error_wrapper | PROTOCOL_SPEC §10.4 |
+| **All framework built-in middleware** | schema_validation, acl_check, tracing, logging, metrics, error_wrapper | PROTOCOL_SPEC §11.4 |
 
 ### 4.3 Should Implement (SHOULD)
 
 | Component | Responsibility | Reference Section |
 |------|------|---------|
-| **Module hot loading** | Runtime reload modules without restart | PROTOCOL_SPEC §11.5 Phase 4 |
-| **OpenTelemetry integration** | Standard OTLP exporter | PROTOCOL_SPEC §9.1 |
-| **Prometheus metrics export** | Standard metrics format | PROTOCOL_SPEC §9.3 |
-| **Advanced sampling strategies** | Error-first sampling | PROTOCOL_SPEC §9.6 |
-| **W3C Trace Context** | `traceparent` header propagation | PROTOCOL_SPEC §9.4 |
+| **Module hot loading** | Runtime reload modules without restart | PROTOCOL_SPEC §12.5 Phase 4 |
+| **OpenTelemetry integration** | Standard OTLP exporter | PROTOCOL_SPEC §10.1 |
+| **Prometheus metrics export** | Standard metrics format | PROTOCOL_SPEC §10.3 |
+| **Advanced sampling strategies** | Error-first sampling | PROTOCOL_SPEC §10.6 |
+| **W3C Trace Context** | `traceparent` header propagation | PROTOCOL_SPEC §10.4 |
 | **Module isolation** | Process-level or container-level isolation | PROTOCOL_SPEC §5.5 |
 | **Multi-version coexistence** | Multiple versions of same module running | PROTOCOL_SPEC §5.4 |
 | **Schema deprecation markers** | `x-deprecated` handling and warnings | PROTOCOL_SPEC §4.11 |
@@ -195,10 +195,10 @@ Level 2 adds all extension points, async modules, hot loading, and advanced obse
 | Component | Responsibility | Reference Section |
 |------|------|---------|
 | **Protocol adapters** | MCP / A2A / OpenAI / Anthropic / LangChain mapping | PROTOCOL_SPEC §D |
-| **CLI tools** | `init`, `create`, `run` and other developer tools | PROTOCOL_SPEC §11.5 Phase 3 |
+| **CLI tools** | `init`, `create`, `run` and other developer tools | PROTOCOL_SPEC §12.5 Phase 3 |
 | **Schema code generation** | Generate language native types from YAML Schema | PROTOCOL_SPEC §4.9 |
-| **Remote module loading** | Load modules from remote services/repositories | PROTOCOL_SPEC §10.3 |
-| **Distributed execution** | Cross-process/cross-network module execution | PROTOCOL_SPEC §10.3 |
+| **Remote module loading** | Load modules from remote services/repositories | PROTOCOL_SPEC §11.3 |
+| **Distributed execution** | Cross-process/cross-network module execution | PROTOCOL_SPEC §11.3 |
 | **Container-level isolation** | Docker/Wasm sandbox | PROTOCOL_SPEC §5.5 |
 
 ### 4.5 Level 2 Required Test Categories
@@ -580,11 +580,11 @@ The following features are specified in PROTOCOL_SPEC but not yet fully implemen
 
 | Feature | Spec Reference | Current Status |
 |---------|---------------|----------------|
-| `Config` class (YAML loading, env override, schema validation) | PROTOCOL_SPEC §8.1, §8.2, §8.3 | Stub implementation only. YAML loading, environment variable override, and `validate_config()` schema validation are not implemented. |
-| Registry schema query/export methods (`get_schema`, `export_schema`, etc.) | PROTOCOL_SPEC §11.2 | Not on `Registry`. A standalone `SchemaExporter` class is available for schema export. |
-| Error codes `GENERAL_NOT_IMPLEMENTED` and `DEPENDENCY_NOT_FOUND` | PROTOCOL_SPEC §7.2, §7.7 | Error code constants defined but corresponding error classes not yet implemented. |
-| Version negotiation | PROTOCOL_SPEC §12.3 | `negotiate_version()` algorithm not yet implemented. |
-| Schema migration | PROTOCOL_SPEC §12.4 | `migrate_schema()` algorithm not yet implemented. |
+| `Config` class (YAML loading, env override, schema validation) | PROTOCOL_SPEC §9.1, §9.2, §9.3 | Stub implementation only. YAML loading, environment variable override, and `validate_config()` schema validation are not implemented. |
+| Registry schema query/export methods (`get_schema`, `export_schema`, etc.) | PROTOCOL_SPEC §12.2 | Not on `Registry`. A standalone `SchemaExporter` class is available for schema export. |
+| Error codes `GENERAL_NOT_IMPLEMENTED` and `DEPENDENCY_NOT_FOUND` | PROTOCOL_SPEC §8.2, §8.7 | Error code constants defined but corresponding error classes not yet implemented. |
+| Version negotiation | PROTOCOL_SPEC §13.3 | `negotiate_version()` algorithm not yet implemented. |
+| Schema migration | PROTOCOL_SPEC §13.4 | `migrate_schema()` algorithm not yet implemented. |
 | Module isolation | PROTOCOL_SPEC §5.5 | Process-level or container-level isolation not yet implemented. |
 | Multi-version coexistence | PROTOCOL_SPEC §5.4 | Multiple versions of the same module running concurrently not yet implemented. |
 | `AsyncTaskManager.submit()` / `cancel()` sync vs async | PROTOCOL_SPEC §5.8 | Python `AsyncTaskManager.submit()` and `cancel()` are async methods; TypeScript equivalents are synchronous. |
@@ -595,8 +595,8 @@ Implementations declaring conformance **must** list any of these deviations that
 
 ## 8. References
 
-- [PROTOCOL_SPEC §11 — SDK Implementation Guide](../../PROTOCOL_SPEC.md#11-sdk-implementation-guide)
-- [PROTOCOL_SPEC §11.4 — Conformance Testing Requirements](../../PROTOCOL_SPEC.md#114-conformance-testing-requirements)
-- [PROTOCOL_SPEC §11.5 — Implementation Roadmap](../../PROTOCOL_SPEC.md#115-implementation-roadmap)
+- [PROTOCOL_SPEC §12 — SDK Implementation Guide](../../PROTOCOL_SPEC.md#12-sdk-implementation-guide)
+- [PROTOCOL_SPEC §12.4 — Conformance Testing Requirements](../../PROTOCOL_SPEC.md#124-conformance-testing-requirements)
+- [PROTOCOL_SPEC §12.5 — Implementation Roadmap](../../PROTOCOL_SPEC.md#125-implementation-roadmap)
 - [PROTOCOL_SPEC §1.5 — Normative Keywords](../../PROTOCOL_SPEC.md#15-normative-keywords)
 - [RFC 2119 — Key words for use in RFCs to Indicate Requirement Levels](https://www.rfc-editor.org/rfc/rfc2119)

@@ -642,7 +642,7 @@ All modules must define explicit schemas, ensuring:
 | Registry (write) | Needs sync | `register()`, `unregister()` need locks |
 | Executor | Fully safe | `call()` and `call_async()` can be called concurrently |
 | Context | Partially safe | Immutable fields safe, `data` needs caller sync |
-| ACL | Fully safe | Read-only checks, rules immutable after loading |
+| ACL | Fully safe | Read-only checks are thread-safe. Runtime mutation (`add_rule`, `remove_rule`, `reload`) is protected by `threading.Lock` |
 | Middleware | Must ensure | Instance methods must be thread-safe |
 
 ### 7.2 Concurrent Execution Model

@@ -4,25 +4,27 @@
 
 # apcore — AI-Perceivable Core
 
-> A schema-enforced module framework where every interface is inherently perceivable by AI.
+> **Build once, invoke by Code or AI.**
+> A schema-enforced module framework that defines the "Cognitive Interface" for the AI era.
 
-A schema-driven module development framework that makes every interface naturally perceivable and understandable by AI.
+apcore is a **universal module development framework** that makes every interface naturally perceivable and understandable by AI through enforced Schema definitions and behavioral annotations.
 
 **apcore is a protocol specification.** Language implementations are maintained in separate repositories — see [Implementations](#implementations).
-
-The growing number of fragmented MCP implementations across the ecosystem proves the demand is real. apcore is the only solution that provides a **complete SDK** with a **unified standard** — enforced schema, behavioral annotations, access control, audit trails, and cross-language consistency. It doesn't replace any project's AI capabilities; it brings them all under one standard.
 
 ---
 
 ## Table of Contents
 
 - [What is apcore?](#what-is-apcore)
+  - [The Concept: Cognitive Interface](#the-concept-cognitive-interface)
   - [Why Not Just Use Existing MCP Solutions?](#why-not-just-use-existing-mcp-solutions)
 - [Why AI-Perceivable?](#why-ai-perceivable)
+  - [The AI Collaboration Lifecycle](#the-ai-collaboration-lifecycle)
 - [Core Principles](#core-principles)
 - [Architecture Overview](#architecture-overview)
 - [Quick Start](#quick-start)
 - [Module Development](#module-development)
+  - [Two Integration Paths](#two-integration-paths)
   - [Class-based Modules](#1-class-based-modules)
   - [@module Decorator](#2-module-decorator)
   - [module() Function Call](#3-module-function-call)
@@ -36,7 +38,7 @@ The growing number of fragmented MCP implementations across the ecosystem proves
 - [Middleware](#middleware)
 - [Configuration](#configuration)
 - [Observability](#observability)
-- [Error Handling](#error-handling)
+- [Error Handling & AI Guidance](#error-handling--ai-guidance)
 - [Cross-Language Support](#cross-language-support)
 - [Relationship with Other Tools](#relationship-with-other-tools)
 - [Implementations](#implementations)
@@ -68,6 +70,13 @@ apcore is a **universal module development framework** that makes every module n
 ```
 
 **Not just an AI framework, but a universal framework that is naturally AI-Perceivable.**
+
+### The Concept: Cognitive Interface
+
+Traditional software provides **UI** for humans and **API** for programs. apcore provides the **Cognitive Interface** for AI Agents:
+- **Intent-Oriented**: AI thinks in "What to do" (Intents), not "Which endpoint to call".
+- **Strict Contracts**: Mandatory schemas ensure AI uses your tools correctly every time.
+- **Behavioral Personality**: Annotations like `readonly` and `destructive` guide Agent decisions.
 
 ### Why Not Just Use Existing MCP Solutions?
 
@@ -103,6 +112,15 @@ AI has become an important caller in software systems, but most modules lack AI-
 ---
 
 ## Why AI-Perceivable?
+
+### The AI Collaboration Lifecycle
+
+apcore organizes module metadata into a coherent lifecycle that guides an Agent through every stage of a task:
+
+1.  **Discovery (Identity) — `description`**: Helps the Agent find the right tool for its intent.
+2.  **Strategy (Wisdom) — `metadata`**: Teaches the Agent *when* and *how* to use the tool correctly (e.g., `x-when-to-use`, `x-common-mistakes`).
+3.  **Governance (Safety) — `requires_approval`**: Sets the safety boundary for sensitive operations.
+4.  **Recovery (Resilience) — `ai_guidance`**: Provides a clear path for the Agent to fix errors autonomously.
 
 ### Real-World Scenarios
 
@@ -207,21 +225,24 @@ extensions/
 
 ### Execution Flow
 
-A module call goes through the following steps:
+A module call goes through a rigorous **10-step pipeline** (with a half-step for approval):
 
 ```
 executor.call("executor.email.send_email", inputs, context)
    │
-   ├─ 1. Context processing: Create/update call context (trace_id, caller_id, call_chain)
-   ├─ 2. Lookup module: Find target module from Registry
-   ├─ 3. ACL check: Verify caller has permission to call target module
-   ├─ 4. Input validation: Validate input parameters against input_schema
-   ├─ 5. Middleware before: Execute middleware before() hooks in sequence
-   ├─ 6. Module execution: Call module.execute(inputs, context)
-   ├─ 7. Output validation: Validate output result against output_schema
-   ├─ 8. Middleware after: Execute middleware after() hooks in reverse order
+   ├─  1.  Context processing: Create/update call context (trace_id, caller_id, call_chain)
+   ├─  2.  Safety checks: Verify call depth and detect circular calls
+   ├─  3.  Lookup module: Find target module from Registry
+   ├─  4.  ACL check: Verify caller has permission to call target module
+   ├─  4.5 Approval Gate: Check requires_approval, await human decision
+   ├─  5.  Input validation: Validate input parameters against input_schema
+   ├─  6.  Middleware before: Execute middleware before() hooks in sequence
+   ├─  7.  Module execution: Call module.execute(inputs, context)
+   ├─  8.  Output validation: Validate output result against output_schema
+   ├─  9.  Middleware after: Execute middleware after() hooks in reverse order
+   ├─ 10.  Return result
    │
-   └─ Return result
+   └─ (on error: middleware on_error hooks in reverse order)
 ```
 
 ### Directory as ID
@@ -257,29 +278,53 @@ Rules:
 
 ## Quick Start
 
-> Detailed documentation: [Registry API](./docs/api/registry-api.md) | [Executor API](./docs/api/executor-api.md) | [Context Object](./docs/api/context-object.md)
+For a detailed multi-language guide, visit the **[Getting Started Guide](https://aipartnerup.github.io/apcore/getting-started.html)**.
 
-```bash
-pip install apcore
-```
+=== "Python"
 
-```python
-from apcore import module, Registry, Executor
+    ```bash
+    pip install apcore
+    ```
 
-# 1. Define module with @module decorator (Schema auto-inferred from type annotations)
-@module(id="executor.greet", tags=["greeting"])
-def greet(name: str) -> dict:
-    """Generate greeting message"""
-    return {"message": f"Hello, {name}!"}
+    ```python
+    from apcore import module, Registry, Executor
 
-# 2. Register & call
-registry = Registry()
-registry.register("executor.greet", greet)
+    # 1. Create Registry
+    registry = Registry()
 
-executor = Executor(registry=registry)
-result = executor.call("executor.greet", {"name": "World"})
-print(result)  # {"message": "Hello, World!"}
-```
+    # 2. Define module with @module decorator (Schema auto-inferred, auto-registered)
+    @module(id="math.add", description="Add two integers", registry=registry)
+    def add(a: int, b: int) -> dict:
+        return {"sum": a + b}
+
+    # 3. Call
+    executor = Executor(registry=registry)
+    print(executor.call("math.add", {"a": 10, "b": 5}))  # {'sum': 15}
+    ```
+
+=== "TypeScript"
+
+    ```bash
+    npm install apcore-js
+    ```
+
+    ```typescript
+    import { Type } from '@sinclair/typebox';
+    import { FunctionModule, Registry, Executor } from 'apcore-js';
+
+    const add = new FunctionModule({
+      moduleId: 'math.add',
+      description: 'Add two numbers',
+      inputSchema: Type.Object({ a: Type.Number(), b: Type.Number() }),
+      outputSchema: Type.Object({ sum: Type.Number() }),
+      execute: (inputs) => ({ sum: (inputs.a as number) + (inputs.b as number) }),
+    });
+
+    const registry = new Registry();
+    registry.register('math.add', add);
+    const executor = new Executor({ registry });
+    console.log(await executor.call('math.add', { a: 10, b: 5 })); // { sum: 15 }
+    ```
 
 ### Project Directory Structure
 
@@ -300,9 +345,16 @@ my-project/
 
 > Detailed definitions: [Module Interface](./docs/api/module-interface.md) | [Creating Modules Guide](./docs/guides/creating-modules.md)
 
+### Two Integration Paths
+
+1.  **Native SDK (Recommended)**: Best for new projects. Full type safety and lifecycle control.
+2.  **Zero-Intrusion Patch**: Best for legacy code. Upgrade via decorators or YAML bindings **without rewriting business logic**.
+
+### Implementation Approaches
+
 apcore provides four ways to define modules, suitable for different scenarios:
 
-### 1. Class-based Modules
+#### 1. Class-based Modules
 
 The most complete approach, supporting all features:
 
@@ -386,7 +438,7 @@ Send emails via SMTP protocol, supporting plain text and HTML formats.
 - Input/output validation
 - Call chain tracing, observability
 
-### 2. @module Decorator
+#### 2. @module Decorator
 
 Suitable for scenarios where **source code can be modified**, one-line integration:
 
@@ -406,7 +458,7 @@ def send_email(to: str, subject: str, body: str) -> dict:
 # Schema automatically inferred from type annotations
 ```
 
-### 3. module() Function Call
+#### 3. module() Function Call
 
 Suitable for scenarios where **you don't want to modify source code**, completely non-invasive to existing code:
 
@@ -423,7 +475,7 @@ service = EmailService()
 module(service.send, id="email.send")  # Register as apcore module
 ```
 
-### 4. External Binding (Zero Code Modification)
+#### 4. External Binding (Zero Code Modification)
 
 Suitable for scenarios where **source code cannot be modified** (third-party libraries, legacy systems, etc.), pure YAML configuration:
 
@@ -440,7 +492,7 @@ bindings:
     tags: ["email"]
 ```
 
-### Comparison of Four Approaches
+#### Comparison of Four Approaches
 
 | Approach | Code Invasiveness | Use Case | Schema Definition |
 |------|-----------|---------|------------|
@@ -476,7 +528,8 @@ Each module's metadata is divided into three layers, progressing from required t
 │ Extension Layer (OPTIONAL, free dictionary)      │
 │ metadata: dict[str, Any]                         │
 │ → Custom requirements (framework doesn't         │
-│   validate)                                      │
+│   validate); AI tactical wisdom                  │
+│   (x-when-to-use, etc.) also lives here          │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -509,8 +562,9 @@ Annotations describe module **behavior characteristics**, helping AI make safer 
 | `readonly` | bool | No side effects, read-only operation | AI can safely call autonomously |
 | `destructive` | bool | May delete or overwrite data | AI should request user confirmation before calling |
 | `idempotent` | bool | Repeated calls have same result | AI can safely retry |
-| `requires_approval` | bool | Requires explicit user consent | AI must wait for user approval |
+| `requires_approval` | bool | Requires explicit user consent | AI must wait for human approval (enforced by Executor) |
 | `open_world` | bool | Connects to external systems | AI should inform user of external interaction |
+| `streaming` | bool | Supports streaming execution | AI can use streaming response mode |
 
 ```python
 # Read-only query - AI can call autonomously
@@ -778,9 +832,9 @@ apcore has built-in three pillars of observability, compatible with OpenTelemetr
 
 ---
 
-## Error Handling
+## Error Handling & AI Guidance
 
-apcore defines a unified error format and standard error codes:
+apcore defines a unified error format including **`ai_guidance`**. While standard errors tell a program *what* went wrong, `ai_guidance` tells the Agent **how to fix it and retry**, enabling **Self-Healing** Agents.
 
 ### Error Format
 
@@ -789,7 +843,8 @@ apcore defines a unified error format and standard error codes:
   "code": "SCHEMA_VALIDATION_ERROR",
   "message": "Input validation failed",
   "details": {"field": "email", "reason": "invalid format"},
-  "cause": null,
+  "cause": "ValidationError: value is not a valid email address",
+  "ai_guidance": "Please ask the user for a valid email address.",
   "trace_id": "abc-123",
   "timestamp": "2026-01-01T00:00:00Z"
 }

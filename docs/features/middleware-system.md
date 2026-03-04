@@ -7,7 +7,7 @@ Composable middleware pipeline using the onion execution model with before/after
 ## Requirements
 
 - Provide a base `Middleware` class with no-op defaults for all three lifecycle phases (before, after, on_error), allowing subclasses to override only the methods they need.
-- Implement onion-model execution: before hooks run in registration order, after hooks run in reverse registration order, and on_error hooks run in reverse order over only the middlewares that executed before the failure.
+- Implement onion-model execution: before hooks run in registration order, after hooks run in reverse registration order, and on_error hooks run in reverse order over only the middlewares that executed before the failure. When middleware has explicit priority values (0-1000), higher priority executes first per PROTOCOL_SPEC. When priorities are equal, registration order applies.
 - Support input modification in `before()` (return a new dict to replace inputs, or None to pass through unchanged) and output modification in `after()` (same contract).
 - Support error recovery: `on_error()` handlers are called in reverse order; the first handler to return a non-None dict provides recovery output, short-circuiting the remaining handlers.
 - Provide `BeforeMiddleware` and `AfterMiddleware` adapters that wrap plain callback functions as middleware instances, reducing boilerplate for single-phase hooks.

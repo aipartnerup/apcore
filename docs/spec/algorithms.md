@@ -22,16 +22,16 @@ The apcore specification defines multiple algorithms that must or should be impl
 | A08 | `match_pattern()` | ACL pattern matching | §6.2 | **MUST** |
 | A09 | `evaluate_acl()` | ACL rule evaluation | §6.3 | **MUST** |
 | A10 | `calculate_specificity()` | Pattern specificity scoring | §6.4 | **SHOULD** |
-| A11 | `propagate_error()` | Error propagation | §7.3 | **MUST** |
-| A12 | `validate_config()` | Configuration validation | §8.3 | **MUST** |
-| A13 | `redact_sensitive()` | Sensitive data redaction | §9.5 | **MUST** |
-| A14 | `negotiate_version()` | Version negotiation | §12.3 | **MUST** |
-| A15 | `migrate_schema()` | Schema migration | §12.4 | **SHOULD** |
-| A16 | `load_extensions()` | Extension loading | §10.7 | **MUST** |
-| A17 | `detect_error_code_collisions()` | Error code collision detection | §7.4 | **MUST** |
+| A11 | `propagate_error()` | Error propagation | §8.3 | **MUST** |
+| A12 | `validate_config()` | Configuration validation | §9.3 | **MUST** |
+| A13 | `redact_sensitive()` | Sensitive data redaction | §10.5 | **MUST** |
+| A14 | `negotiate_version()` | Version negotiation | §13.3 | **MUST** |
+| A15 | `migrate_schema()` | Schema migration | §13.4 | **SHOULD** |
+| A16 | `load_extensions()` | Extension loading | §11.7 | **MUST** |
+| A17 | `detect_error_code_collisions()` | Error code collision detection | §8.4 | **MUST** |
 | A20 | `guard_call_chain()` | Call chain safety check | §Executor | **MUST** |
-| A21 | `safe_unregister()` | Hot-reload safe unregistration | §11.7.3 | **MUST** |
-| A22 | `enforce_timeout()` | Timeout enforcement | §11.7.4 | **MUST** |
+| A21 | `safe_unregister()` | Hot-reload safe unregistration | §12.7.3 | **MUST** |
+| A22 | `enforce_timeout()` | Timeout enforcement | §12.7.4 | **MUST** |
 | A23 | `to_strict_schema()` | Strict Mode Schema conversion | §4.16 | **SHOULD** |
 
 ### 1.3 Conventions
@@ -725,7 +725,7 @@ Steps:
 
 ### A11: `propagate_error()` — Error Propagation
 
-**Source**: PROTOCOL_SPEC §7.3
+**Source**: PROTOCOL_SPEC §8.3
 
 **Description**: Wraps raw errors/exceptions generated during module execution into standardized ModuleError objects, preserving error chain and trace information.
 
@@ -796,7 +796,7 @@ Steps:
 
 ### A17: `detect_error_code_collisions()` — Error Code Collision Detection
 
-**Source**: PROTOCOL_SPEC §7.4
+**Source**: PROTOCOL_SPEC §8.4
 
 **Description**: Detects conflicts between module custom error codes and framework reserved error codes as well as other module error codes.
 
@@ -855,7 +855,7 @@ Steps:
 
 ### A12: `validate_config()` — Configuration Validation
 
-**Source**: PROTOCOL_SPEC §8.3
+**Source**: PROTOCOL_SPEC §9.3
 
 **Description**: Validates merged configuration object (environment variables + config file + defaults) during framework startup, ensuring all required fields exist, types are correct, and constraints are satisfied.
 
@@ -912,7 +912,7 @@ Steps:
 
 **Implementation Notes:**
 
-- Configuration merge priority: environment variables > config file > defaults (see §8.2)
+- Configuration merge priority: environment variables > config file > defaults (see §9.2)
 - Environment variable naming convention: `APCORE_{SECTION}_{KEY}`, all uppercase, hyphens converted to underscores
 - Required field list: `version`, `extensions.root`, `schema.root`, `acl.root`, `acl.default_effect`, `project.name`
 - Validation errors should collect all errors before reporting, rather than stopping at first error
@@ -923,7 +923,7 @@ Steps:
 
 ### A13: `redact_sensitive()` — Sensitive Data Redaction
 
-**Source**: PROTOCOL_SPEC §9.5
+**Source**: PROTOCOL_SPEC §10.5
 
 **Description**: Redacts fields marked with `x-sensitive` in log and trace output, replacing sensitive values with `"***REDACTED***"`.
 
@@ -988,7 +988,7 @@ Steps:
 
 ### A14: `negotiate_version()` — Version Negotiation
 
-**Source**: PROTOCOL_SPEC §12.3
+**Source**: PROTOCOL_SPEC §13.3
 
 **Description**: Performs version negotiation when SDK loads configuration or Schema, determines effective version number. Ensures major version compatibility, provides appropriate handling for minor version differences.
 
@@ -1052,7 +1052,7 @@ Steps:
 
 ### A15: `migrate_schema()` — Schema Migration
 
-**Source**: PROTOCOL_SPEC §12.4
+**Source**: PROTOCOL_SPEC §13.4
 
 **Description**: Automatically performs migration when Schema version changes. Converts Schema from old version to target version through migration function chain.
 
@@ -1119,7 +1119,7 @@ Steps:
 
 ### A16: `load_extensions()` — Extension Loading
 
-**Source**: PROTOCOL_SPEC §10.7
+**Source**: PROTOCOL_SPEC §11.7
 
 **Description**: Loads extension point implementations by priority and strategy. Supports three strategies: `first_success` (first successful takes effect), `all` (execute all), `fallback` (fallback chain).
 
@@ -1175,7 +1175,7 @@ Steps:
 
 **Implementation Notes:**
 
-- Framework default implementations as follows (see §10.3):
+- Framework default implementations as follows (see §11.3):
   - `SchemaLoader` → `YAMLSchemaLoader`
   - `ModuleLoader` → `DirectoryModuleLoader`
   - `IDConverter` → `DefaultIDConverter`
@@ -1479,7 +1479,7 @@ to_strict_schema()              ←── export_schema(strict=true)
 
 ### A21: `safe_unregister()` — Hot-reload Safe Unregistration
 
-**Source**: PROTOCOL_SPEC §11.7.3
+**Source**: PROTOCOL_SPEC §12.7.3
 
 **Purpose**: Safely unregister module when it may be executing, avoiding race conditions and resource leaks.
 
@@ -1607,7 +1607,7 @@ class Registry:
 
 ### A22: `enforce_timeout()` — Timeout Enforcement
 
-**Source**: PROTOCOL_SPEC §11.7.4
+**Source**: PROTOCOL_SPEC §12.7.4
 
 **Purpose**: Ensure module execution completes within specified time, cooperative cancellation or forced termination after timeout.
 
@@ -1921,8 +1921,9 @@ additionalProperties: false
 - [PROTOCOL_SPEC §5.11 — Function-based Module Definition](../../PROTOCOL_SPEC.md#511-function-based-module-definition)
 - [PROTOCOL_SPEC §5.12 — External Schema Binding](../../PROTOCOL_SPEC.md#512-external-schema-binding)
 - [PROTOCOL_SPEC §6 — ACL Specification](../../PROTOCOL_SPEC.md#6-acl-specification)
-- [PROTOCOL_SPEC §7 — Error Handling Specification](../../PROTOCOL_SPEC.md#7-error-handling-specification)
-- [PROTOCOL_SPEC §8 — Configuration Specification](../../PROTOCOL_SPEC.md#8-configuration-specification)
-- [PROTOCOL_SPEC §9 — Observability Specification](../../PROTOCOL_SPEC.md#9-observability-specification)
-- [PROTOCOL_SPEC §10 — Extension Mechanism](../../PROTOCOL_SPEC.md#10-extension-mechanism)
-- [PROTOCOL_SPEC §12 — Versioning](../../PROTOCOL_SPEC.md#12-versioning)
+- [PROTOCOL_SPEC §7 — Approval System](../../PROTOCOL_SPEC.md#7-approval-system)
+- [PROTOCOL_SPEC §8 — Error Handling Specification](../../PROTOCOL_SPEC.md#8-error-handling-specification)
+- [PROTOCOL_SPEC §9 — Configuration Specification](../../PROTOCOL_SPEC.md#9-configuration-specification)
+- [PROTOCOL_SPEC §10 — Observability Specification](../../PROTOCOL_SPEC.md#10-observability-specification)
+- [PROTOCOL_SPEC §11 — Extension Mechanism](../../PROTOCOL_SPEC.md#11-extension-mechanism)
+- [PROTOCOL_SPEC §13 — Versioning](../../PROTOCOL_SPEC.md#13-versioning)

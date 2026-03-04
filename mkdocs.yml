@@ -54,6 +54,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Getting Started: getting-started.md
   - Core Documents:
       - Protocol Specification: PROTOCOL_SPEC.md
       - Scope Definition: SCOPE.md

@@ -7,12 +7,18 @@
 ## 1. Interface Overview
 
 ```python
-from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Type
+from typing import Any, ClassVar, Protocol, Type, runtime_checkable
 from pydantic import BaseModel
 
-class Module(ABC):
-    """apcore module base class"""
+
+@runtime_checkable
+class Module(Protocol):
+    """apcore module interface (structural typing / duck typing).
+
+    Modules MUST NOT inherit from an ABC. Any class that provides the
+    required attributes and methods below is a valid apcore module.
+    The framework checks conformance via structural (duck-type) matching.
+    """
 
     # ============ Required Definitions ============
 
@@ -29,7 +35,6 @@ class Module(ABC):
     # Detailed documentation (optional, ≤5000 characters, supports Markdown)
     documentation: ClassVar[str | None] = None
 
-    @abstractmethod
     def execute(self, inputs: dict[str, Any], context: "Context") -> dict[str, Any]:
         """
         Execute module logic (must be implemented)
@@ -93,6 +98,11 @@ class Module(ABC):
     # Note: Modules only need to define one execute() method, using either def or async def.
     # The framework automatically detects and selects the appropriate invocation method (sync or async), no need to define separately.
 ```
+
+> **Important**: Modules only need to implement `execute()` and provide the required schema
+> attributes (`input_schema`, `output_schema`, `description`). No ABC inheritance is
+> required (PROTOCOL_SPEC §5.6). The framework validates module conformance structurally
+> at registration time.
 
 ---
 

@@ -241,25 +241,25 @@ rules:
 
 ---
 
-## 6. Rule Priority
+## 6. Rule Evaluation
 
 ### 6.1 Matching Order
 
-Rules are matched by **priority** (higher number first). For rules with the same priority, **deny** takes precedence over **allow**; if still tied, the rule defined earlier takes effect:
+Rules are evaluated using **first-match-wins in definition order** per PROTOCOL_SPEC. Rules are checked in the order they appear in the YAML file, and the **first matching rule** determines the outcome. If no rule matches, the `default_effect` applies:
 
 ```yaml
 rules:
-  # Rule 1: Exact match (priority)
+  # Rule 1: Exact match (checked first)
   - callers: ["orchestrator.user.register"]
     targets: ["executor.email.send_email"]
     effect: allow
 
-  # Rule 2: Wildcard match
+  # Rule 2: Wildcard match (checked second)
   - callers: ["orchestrator.*"]
     targets: ["executor.email.*"]
     effect: deny
 
-  # Rule 3: Default rule
+  # Rule 3: Default rule (checked last)
   - callers: ["*"]
     targets: ["*"]
     effect: allow
@@ -267,13 +267,13 @@ rules:
 
 ```
 Call: orchestrator.user.register → executor.email.send_email
-Match: Rule 1 (allow, same priority)
+Match: Rule 1 (allow — first rule to match)
 
 Call: orchestrator.order.create → executor.email.send_email
-Match: Rule 2 (deny, same priority)
+Match: Rule 2 (deny — first rule to match)
 
 Call: api.handler.test → common.util.format
-Match: Rule 3 (allow)
+Match: Rule 3 (allow — first rule to match)
 ```
 
 ### 6.2 Best Practices

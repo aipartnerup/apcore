@@ -54,7 +54,7 @@ The executor processes every module call through the following pipeline:
 
 ### Sync/Async Bridge
 
-The executor exposes both `execute()` (sync) and `execute_async()` (async) entry points. Internally:
+The executor exposes both `call()` (sync) and `call_async()` (async) entry points. Internally:
 - Synchronous modules called from an async context are dispatched to a daemon thread via `asyncio.to_thread`.
 - Asynchronous modules called from a synchronous context are executed through a temporary event loop on a daemon thread.
 - An async module cache lock protects concurrent access to shared module state.

@@ -60,7 +60,7 @@ The `SchemaAnnotations` class manages field-level metadata extracted from `x-*` 
 
 - `x-sensitive`: Marks a field as containing sensitive data (used by the executor's redaction logic).
 - `x-display`: Hints for UI rendering.
-- `x-llm-hint`: Instructions or context intended for LLM consumption.
+- `x-llm-description`: Instructions or context intended for LLM consumption.
 
 ### Dynamic Pydantic Model Generation
 

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-03-03
+
+### Added
+- **AI Collaboration Lifecycle** documentation: Integrated `description`, `metadata`, `requires_approval`, and `ai_guidance` into a unified narrative (Discovery, Strategy, Governance, Recovery).
+- New "Cognitive Interface" concept in `README.md` and `docs/concepts.md`.
+- Intent-oriented design tips in `docs/guides/creating-modules.md`.
+- Comprehensive multi-language **"Getting Started" guide** covering both Python and TypeScript side-by-side
+- Multi-language support (side-by-side examples) in **"Creating Modules" guide**
+- Unified documentation links across all implementation READMEs (`apcore-python`, `apcore-typescript`)
+- TypeScript examples for Registry, Executor, and Module definition in core documentation
+
+### Changed
+- **`README.md`** — Updated Quick Start with multi-language tabs and links to the new Getting Started guide
+
+---
+
 ## [0.3.0] - 2026-03-01
 
 ### Added

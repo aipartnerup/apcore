@@ -1,10 +1,29 @@
 # apcore — AI-Perceivable Core Concepts
 
-> Understanding apcore's design philosophy and core concepts.
+> Understanding apcore's design philosophy, technical architecture, and the AI Collaboration Lifecycle.
 
 ## 1. Design Philosophy
 
-### 1.1 Why Do We Need apcore?
+### 1.1 The Concept: Cognitive Interface
+
+Traditional software provides **UI** for humans and **API** for programs. apcore defines the **Cognitive Interface** for AI Agents.
+- **Intent-Oriented**: AI thinks in terms of "What to do" (Intents), not "Which endpoint to call".
+- **Strict Contracts**: Mandatory schemas ensure AI uses your tools correctly every time.
+- **Behavioral Personality**: Annotations like `readonly`, `destructive`, and `requires_approval` give Agents the guardrails they need to make safe decisions.
+- **Self-Healing**: Error guidance (`ai_guidance`) tells the Agent exactly how to fix issues and retry.
+
+### 1.2 The AI Collaboration Lifecycle
+
+apcore organizes module metadata into a coherent lifecycle that guides an Agent through every stage of a task:
+
+1.  **Discovery (Identity) — `description`**: Helps the Agent find the right tool for its intent.
+2.  **Strategy (Wisdom) — `metadata`**: Teaches the Agent *when* and *how* to use the tool correctly (e.g., `x-when-to-use`, `x-common-mistakes`).
+3.  **Governance (Safety) — `requires_approval`**: Sets the safety boundary for sensitive operations.
+4.  **Recovery (Resilience) — `ai_guidance`**: Provides a clear path for the Agent to fix errors autonomously.
+
+---
+
+### 1.3 Why Do We Need apcore?
 
 The growing number of fragmented MCP implementations across the ecosystem proves the demand is real. apcore is the only solution that provides a **complete SDK** with a **unified standard** — enforced schema, behavioral annotations, access control, audit trails, and cross-language consistency. It doesn't replace any project's AI capabilities; it brings them all under one standard.
 
@@ -54,7 +73,7 @@ module(existing_service.send, id="email.send")
 
 Schema is auto-generated from type annotations, existing code logic remains unchanged. You can also use YAML binding files for completely zero-code-modification integration (see [Creating Modules Guide](./guides/creating-modules.md#external-schema-binding-yaml)).
 
-### 1.2 Core Design Principles
+### 1.4 Core Design Principles
 
 | Principle | Description |
 |------|------|
@@ -352,7 +371,8 @@ class SendEmailModule(Module):
 ├──────────────────────────────────────────────────────┤
 │  Extension Layer (optional, free dict)               │
 │  metadata: dict[str, Any]                            │
-│  → Custom extension needs (framework doesn't constrain)│
+│  → Custom requirements (framework doesn't validate); │
+│    AI tactical wisdom (x-when-to-use, etc.)          │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -415,10 +435,10 @@ executor.email.send_email
 
 # Local representation in each language
 Python:     executor/email/send_email.py      class SendEmailModule
-Rust:       executor/email/send_email.rs      struct SendEmailModule
-Go:         executor/email/send_email.go      type SendEmailModule
+Rust:       executor/email/send_email.rs       struct SendEmailModule
+Go:         executor/email/send_email.go       type SendEmailModule
 Java:       executor/email/SendEmail.java     class SendEmailModule
-TypeScript: executor/email/sendEmail.ts       class SendEmailModule
+TypeScript: executor/email/sendEmail.ts        class SendEmailModule
 ```
 
 **ID Map configuration (special case overrides):**

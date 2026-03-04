@@ -74,10 +74,8 @@ Callbacks are invoked synchronously within the registry lock, ensuring consisten
 The registry provides several query methods:
 
 - `get(module_id)` -- Direct lookup by ID.
-- `list()` -- Returns all registered modules.
-- `filter_by_tag(tag)` -- Returns modules whose metadata includes the specified tag.
-- `filter_by_prefix(prefix)` -- Returns modules whose IDs start with the given prefix.
-- `describe(module_id)` -- Returns a `ModuleDescriptor` for the specified module, including exported schemas.
+- `list(tags=None, prefix=None)` -- Returns all registered modules, optionally filtered by tags and/or ID prefix. When `tags` is provided, only modules whose metadata includes the specified tag(s) are returned. When `prefix` is provided, only modules whose IDs start with the given prefix are returned. Both filters can be combined.
+- `get_definition(module_id)` -- Returns a `ModuleDescriptor` for the specified module, including exported schemas.
 
 ## Key Files
 
