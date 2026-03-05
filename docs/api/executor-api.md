@@ -410,6 +410,27 @@ except ModuleError as e:
     )
 ```
 
+### 5.3 AI Error Guidance Fields
+
+All `ModuleError` instances carry four optional guidance fields (see PROTOCOL_SPEC §8.1.1) that enable AI agents to programmatically understand and respond to errors without parsing human-readable messages:
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `retryable` | `bool \| None` | Whether retrying the same call may succeed. Each error code has a default (see §8.6). `None` means "depends on context". |
+| `ai_guidance` | `str \| None` | Machine-readable hint for AI agents, e.g. `"validate input schema before retry"`. |
+| `user_fixable` | `bool \| None` | Whether the end-user (not developer) can fix the issue. |
+| `suggestion` | `str \| None` | Actionable suggestion for resolving the error. |
+
+Fields with `None` values are omitted from serialized output (sparse serialization).
+
+```python
+except SchemaValidationError as e:
+    print(e.retryable)      # False (default for this error code)
+    print(e.user_fixable)   # True — user can fix their input
+    print(e.suggestion)     # "Table names must use only lowercase letters and underscores"
+    print(e.ai_guidance)    # "validate input against schema before retry"
+```
+
 ---
 
 ## 6. Execution Flow

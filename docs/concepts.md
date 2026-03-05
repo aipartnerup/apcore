@@ -19,7 +19,7 @@ apcore organizes module metadata into a coherent lifecycle that guides an Agent 
 1.  **Discovery (Identity) — `description`**: Helps the Agent find the right tool for its intent.
 2.  **Strategy (Wisdom) — `metadata`**: Teaches the Agent *when* and *how* to use the tool correctly (e.g., `x-when-to-use`, `x-common-mistakes`).
 3.  **Governance (Safety) — `requires_approval`**: Sets the safety boundary for sensitive operations.
-4.  **Recovery (Resilience) — `ai_guidance`**: Provides a clear path for the Agent to fix errors autonomously.
+4.  **Recovery (Resilience) — error guidance fields**: Every `ModuleError` carries optional fields that enable AI agents to recover autonomously: `retryable` (can the call be retried?), `ai_guidance` (machine-readable recovery hint), `user_fixable` (can the end-user fix it?), and `suggestion` (actionable fix). See PROTOCOL_SPEC §8.1.1.
 
 ---
 
@@ -383,6 +383,26 @@ class SendEmailModule(Module):
 | Core Layer | Mandatory, all modules must have | Rarely changes |
 | Annotation Layer | Optional but type-safe, framework understands | Occasionally add fields |
 | Extension Layer | Completely free, framework doesn't interpret | Can extend anytime |
+
+**Recommended AI Intent Metadata Keys** (PROTOCOL_SPEC §4.6):
+
+The following `x-*` keys are conventions for guiding AI agents. They are not enforced by the framework but provide tactical wisdom in the Extension Layer:
+
+| Key | Purpose | Example |
+|-----|---------|---------|
+| `x-when-to-use` | Scenarios where this module is the right choice | `"Use when the user wants to send transactional email"` |
+| `x-when-not-to-use` | Scenarios where a different module should be used | `"Do not use for marketing/bulk emails"` |
+| `x-common-mistakes` | Known pitfalls AI agents frequently encounter | `"Forgetting to set reply_to; passing HTML in plain text field"` |
+| `x-workflow-hints` | Suggested pre/post steps or related modules | `"Call validate-email first to verify recipient exists"` |
+
+```yaml
+# In module metadata or schema x-* fields
+metadata:
+  x-when-to-use: "Use when the user wants to send transactional email"
+  x-when-not-to-use: "Do not use for marketing/bulk emails"
+  x-common-mistakes: "Forgetting to set reply_to; passing HTML in plain text field"
+  x-workflow-hints: "Call validate-email first to verify recipient exists"
+```
 
 ---
 

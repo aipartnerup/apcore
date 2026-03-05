@@ -89,8 +89,9 @@ Things explicitly **not within the project scope**:
 | **Workflow Engine** | Application-layer orchestration logic, not framework core | apflow and other upstream projects |
 | **MCP/A2A Adapters** | Usage scenarios, not core protocol | Independent adapter projects |
 | **Concrete Business Modules** | We are a framework, not an application | Upstream projects |
-| **LLM Invocation Wrappers** | Stay neutral, don't bind to a specific LLM | LangChain/LlamaIndex |
-| **Agent Strategies** | Too high-level, belongs to application logic | CrewAI/AutoGen |
+| **LLM Invocation Wrappers** | Stay neutral, don't bind to a specific LLM | LangChain/LlamaIndex/pydantic-ai |
+| **Agent Strategies** | Too high-level, belongs to application logic | CrewAI/AutoGen/pydantic-ai |
+| **Prompt Templates** | AI orchestration belongs to upper layers, not the module framework | Agent frameworks |
 | **Distributed Execution** | Advanced runtime feature | Independent extension projects |
 | **UI/CLI Applications** | Focus on core protocol | Upstream projects |
 | **Specific Cloud Service Integrations** | Stay neutral | Extension packages |

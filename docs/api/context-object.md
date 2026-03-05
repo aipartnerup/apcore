@@ -81,6 +81,14 @@ class Context:
     # Redacted data automatically provided by Executor (x-sensitive fields replaced with "***REDACTED***")
     redacted_inputs: dict[str, Any] | None = None
 
+    # ====== Optional extension fields (MAY be provided by implementations) ======
+
+    # Cooperative cancellation token for long-running operations
+    cancel_token: CancelToken | None = None
+
+    # Dependency injection container for sharing services across the call chain
+    services: T | None = None
+
     # ====== Everything else ======
 
     # Shared pipeline state (passed by reference, readable/writable along the call chain)
@@ -97,7 +105,9 @@ class Context:
 | `executor` | Executor | **MUST** | — | Thread-safe | **MUST NOT** |
 | `identity` | Identity \| null | **SHOULD** | — | Read-only, safe | **MUST** |
 | `logger` | ContextLogger | **SHOULD** | — | Thread-safe | **MUST NOT** |
-| `redacted_inputs` | dict \| null | **SHOULD** | — | Read-only, safe | **MUST** |
+| `redacted_inputs` | dict \| null | **SHOULD** | — | Read-only, safe | **MAY** |
+| `cancel_token` | CancelToken \| null | **MAY** | — | Thread-safe | **MUST NOT** |
+| `services` | T \| null | **MAY** | — | Read-only, safe | **MUST NOT** |
 | `data` | dict[str, Any] | **MUST** | — | Not thread-safe | **SHOULD** |
 
 **call_chain depth limit:** Implementations **MUST** reject new module calls when `call_chain` length reaches 32, throwing a `CALL_DEPTH_EXCEEDED` error.

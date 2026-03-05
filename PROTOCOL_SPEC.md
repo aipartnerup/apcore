@@ -5,7 +5,7 @@
 > Version: 1.3.0-draft
 > Status: Draft Specification (RFC 2119 Conformant)
 > Stability: Specification content is stable, pending reference implementation verification
-> Last Updated: 2026-03-01
+> Last Updated: 2026-03-05
 
 ---
 
@@ -1972,6 +1972,22 @@ context_schema:
     data:
       type: object
       description: "Shared pipeline state (reference passing, readable/writable along call chain)"
+
+    # ====== Optional extension fields (MAY be provided by implementations) ======
+
+    cancel_token:
+      nullable: true
+      description: "Cooperative cancellation token for long-running operations (MAY)"
+
+    services:
+      type: object
+      nullable: true
+      description: "Dependency injection container for sharing services across the call chain (MAY)"
+
+    redacted_inputs:
+      type: object
+      nullable: true
+      description: "Copy of inputs with x-sensitive fields replaced by REDACTED_VALUE, for safe logging (MAY)"
 ```
 
 **Field Classification Rationale:**
@@ -1984,6 +2000,9 @@ context_schema:
 | `executor` | Framework engine dependency | Only channel for inter-module calls |
 | `identity` | Widely needed | ACL is framework first-class citizen, needs standardized "who" |
 | `data` | Universal bag | span_id, locale, pipeline intermediate state, etc. all mutable data |
+| `cancel_token` | Optional extension | Cooperative cancellation for timeout enforcement |
+| `services` | Optional extension | DI container for framework integrations |
+| `redacted_inputs` | Optional extension | Safe logging of sensitive inputs |
 
 **Context Serialization Specification (Cross-process Scenarios):**
 
@@ -2000,6 +2019,9 @@ context_serialization:
     - "identity: MUST serialize as JSON object"
     - "data: SHOULD serialize, but MUST exclude non-serializable values"
     - "When data contains functions/connections etc. non-serializable values, MUST silently skip and log warning"
+    - "cancel_token: MUST NOT serialize (runtime object)"
+    - "services: MUST NOT serialize (runtime injected)"
+    - "redacted_inputs: MAY serialize as JSON object"
 ```
 
 ### 5.8 Async Module Specification
@@ -2610,7 +2632,7 @@ Implementations **must** handle module edge cases according to the following tab
 | Module called before load completion | Wait for load completion or throw `MODULE_NOT_FOUND` | **SHOULD** |
 | Module called after unload | Throw `MODULE_NOT_FOUND` | **MUST** |
 | Repeated `discover()` of same module | If `metadata.yaml` unchanged, skip (idempotent) | **MUST** |
-| Hot reload while module executing | See §11.7.3 Hot Reload Race Conditions | **MUST** |
+| Hot reload while module executing | See §12.7.3 Hot Reload Race Conditions | **MUST** |
 
 **Note**:
 - Dependency topological sorting uses algorithm A07 (§5.3)
@@ -3143,6 +3165,14 @@ The four optional fields (`retryable`, `ai_guidance`, `user_fixable`, `suggestio
 
 ```yaml
 error_codes:
+  # Configuration-related (CONFIG_*)
+  CONFIG_NOT_FOUND:
+    description: "Configuration file not found"
+    http_status: 500
+  CONFIG_INVALID:
+    description: "Invalid configuration file"
+    http_status: 500
+
   # Module-related (MODULE_*)
   MODULE_NOT_FOUND:
     description: "Module doesn't exist"
@@ -3166,6 +3196,9 @@ error_codes:
     http_status: 400
   SCHEMA_PARSE_ERROR:
     description: "Schema parse error"
+    http_status: 500
+  SCHEMA_CIRCULAR_REF:
+    description: "Schema circular reference detected"
     http_status: 500
 
   # Permission-related (ACL_*)
@@ -3199,6 +3232,32 @@ error_codes:
     http_status: 500
   BINDING_SCHEMA_MISSING:
     description: "Binding Schema missing"
+    http_status: 500
+  BINDING_FILE_INVALID:
+    description: "Binding file parse error"
+    http_status: 500
+
+  # Middleware-related (MIDDLEWARE_*)
+  MIDDLEWARE_CHAIN_ERROR:
+    description: "Middleware chain execution failed"
+    http_status: 500
+
+  # Version-related (VERSION_*)
+  VERSION_INCOMPATIBLE:
+    description: "SDK/config version incompatible"
+    http_status: 500
+
+  # Error code registry (ERROR_CODE_*)
+  ERROR_CODE_COLLISION:
+    description: "Custom error code collides with framework or other module code"
+    http_status: 500
+
+  # Dependency-related (CIRCULAR_*, DEPENDENCY_*)
+  CIRCULAR_DEPENDENCY:
+    description: "Module dependency cycle detected"
+    http_status: 500
+  DEPENDENCY_NOT_FOUND:
+    description: "Dependent module doesn't exist"
     http_status: 500
 
   # General errors (GENERAL_*)
@@ -3397,10 +3456,13 @@ Implementations **must not** default retry failed module invocations. Retry beha
 | `BINDING_SCHEMA_MISSING` | **No** | Schema missing for binding, needs code fix |
 | `BINDING_FILE_INVALID` | **No** | Binding file parse error, needs config fix |
 | `CIRCULAR_DEPENDENCY` | **No** | Module dependency cycle, needs architecture fix |
+| `MIDDLEWARE_CHAIN_ERROR` | **No** | Middleware failed, needs code fix |
+| `VERSION_INCOMPATIBLE` | **No** | Version mismatch, needs upgrade or config fix |
+| `ERROR_CODE_COLLISION` | **No** | Error code conflict, needs code fix |
 
 Implementations **should** use this table as the default `retryable` value for each error subclass. Callers may override the default on a per-instance basis.
 
-> **Note:** The following error codes are forward-declared for future features and do not yet have exception classes or retryability defaults: `GENERAL_NOT_IMPLEMENTED`, `DEPENDENCY_NOT_FOUND`, `MIDDLEWARE_CHAIN_ERROR`. Implementations **should** assign retryability defaults when the corresponding exception classes are introduced.
+> **Note:** The following error codes are forward-declared for future features and do not yet have exception classes or retryability defaults: `GENERAL_NOT_IMPLEMENTED`, `DEPENDENCY_NOT_FOUND`. Implementations **should** assign retryability defaults when the corresponding exception classes are introduced.
 
 Retry middleware (if implemented) **should**:
 - Only retry errors marked as retryable
@@ -3433,18 +3495,22 @@ ModuleError (base error for all framework errors)
 ├── BindingCallableNotFoundError   # BINDING_CALLABLE_NOT_FOUND — Can't find target callable
 ├── BindingNotCallableError        # BINDING_NOT_CALLABLE — Target not callable
 ├── BindingSchemaMissingError      # BINDING_SCHEMA_MISSING — Schema missing
+├── BindingFileInvalidError        # BINDING_FILE_INVALID — Binding file parse error
 ├── CircularDependencyError        # CIRCULAR_DEPENDENCY — Circular dependency
 ├── DependencyNotFoundError        # DEPENDENCY_NOT_FOUND — Dependent module doesn't exist
 ├── CallDepthExceededError         # CALL_DEPTH_EXCEEDED — Call depth exceeded limit
 ├── CircularCallError              # CIRCULAR_CALL — Circular call
 ├── CallFrequencyExceededError     # CALL_FREQUENCY_EXCEEDED — Call frequency exceeded limit
+├── MiddlewareChainError           # MIDDLEWARE_CHAIN_ERROR — Middleware chain execution failed
 ├── ApprovalError                  # Base class for approval errors (§7)
 │   ├── ApprovalDeniedError        # APPROVAL_DENIED — Approval explicitly rejected
 │   ├── ApprovalTimeoutError       # APPROVAL_TIMEOUT — Approval timed out
 │   └── ApprovalPendingError       # APPROVAL_PENDING — Approval pending (Phase B)
 ├── InvalidInputError              # GENERAL_INVALID_INPUT — Invalid input
 ├── InternalError                  # GENERAL_INTERNAL_ERROR — Internal error
-└── NotImplementedError            # GENERAL_NOT_IMPLEMENTED — Feature not implemented
+├── NotImplementedError            # GENERAL_NOT_IMPLEMENTED — Feature not implemented
+├── VersionIncompatibleError       # VERSION_INCOMPATIBLE — SDK/config version incompatible
+└── ErrorCodeCollisionError        # ERROR_CODE_COLLISION — Error code collision detected
 ```
 
 Each error class carries a `code` attribute set to the corresponding error code string (e.g., `MODULE_NOT_FOUND`). Implementations **must** ensure all framework-thrown errors are instances of `ModuleError`. Module custom errors **should** also extend `ModuleError` directly.
@@ -4030,7 +4096,7 @@ Extension Point: Executor
   execute(module: Module, method: String, inputs: Map, context: Context) → Map
 ```
 
-> **NOTE:** The interface contracts above use the original theoretical names. See the mapping table in §10.3 for the actual extension point names used in SDK implementations (`discoverer`, `middleware`, `acl`, `span_exporter`, `module_validator`).
+> **NOTE:** The interface contracts above use the original theoretical names. See the mapping table in §11.3 for the actual extension point names used in SDK implementations (`discoverer`, `middleware`, `acl`, `span_exporter`, `module_validator`).
 
 ### 11.7 Extension Loading Order
 
@@ -4091,7 +4157,7 @@ Implementations **must** handle middleware edge cases according to the following
 
 **Note**:
 - Timeout timer should start at first `before()` call
-- Timeout enforcement algorithm see §11.7.4 and algorithms.md A22
+- Timeout enforcement algorithm see §12.7.4 and algorithms.md A22
 
 ---
 
@@ -4226,7 +4292,7 @@ Interface: MiddlewareManager
 Interface: TracingProvider
   /**
    * Create new Span
-   * @param name       — Span name (follows §9.7 naming convention)
+   * @param name       — Span name (follows §10.7 naming convention)
    * @param context    — Execution context (contains trace_id, parent_span_id)
    * @return span      — Span object
    */
@@ -4286,14 +4352,14 @@ All SDKs **MUST** export these event names as named constants (e.g., TypeScript:
 
 #### Error Code Constants Export Requirement
 
-All SDKs **MUST** export the framework error codes defined in Section 7 as enumerated constants. This prevents magic string dependencies and enables IDE autocomplete.
+All SDKs **MUST** export the framework error codes defined in Section 8 as enumerated constants. This prevents magic string dependencies and enables IDE autocomplete.
 
 Example (TypeScript):
 ```typescript
 export const ErrorCodes = {
   MODULE_NOT_FOUND: "MODULE_NOT_FOUND",
   SCHEMA_VALIDATION_ERROR: "SCHEMA_VALIDATION_ERROR",
-  // ... all codes from Section 7
+  // ... all codes from Section 8
 } as const;
 ```
 
@@ -4461,7 +4527,7 @@ Phase 4: Advanced
 
 This section defines apcore's concurrency model and thread safety requirements, ensuring SDK implementers correctly implement the framework in multi-threaded/coroutine environments.
 
-#### 11.7.1 Module Instance Lifecycle
+#### 12.7.1 Module Instance Lifecycle
 
 **Singleton Model (MUST)**:
 
@@ -4506,7 +4572,7 @@ class CounterModule:
 | `execute()` | 0..N times | **Multi-thread** | Business logic |
 | `on_unload()` | 0..1 time | Single-thread | Resource cleanup |
 
-#### 11.7.2 Context.data Sharing Semantics
+#### 12.7.2 Context.data Sharing Semantics
 
 **Reference Sharing (MUST)**:
 
@@ -4544,7 +4610,7 @@ print(context.data["key"])  # Reads "value" (reference sharing)
 - If `context.data` might be accessed by multiple threads (e.g., async middleware), **should** use thread-safe Map implementation
 - Python's `dict` is partially thread-safe in CPython (GIL protected), but **should** avoid relying on implementation details
 
-#### 11.7.3 Hot Reload Race Conditions
+#### 12.7.3 Hot Reload Race Conditions
 
 **Problem**: During `unregister()`, module might be executing in other threads.
 
@@ -4578,7 +4644,7 @@ Return:
 | `unregister()` | `unregister()` same ID | Idempotent, succeed silently | **MUST** |
 | `get()` | `unregister()` | If get executes first, return instance; if unregister executes first, throw `MODULE_NOT_FOUND` | **SHOULD** |
 
-#### 11.7.4 Timeout Enforcement
+#### 12.7.4 Timeout Enforcement
 
 **Cooperative Cancellation (SHOULD)**:
 
@@ -4623,7 +4689,7 @@ Return:
 | ACL check timeout | ACL rule evaluation | 1000ms | Separate timing |
 | Schema validation timeout | Input/output validation | Included in global timeout | Not separately timed |
 
-#### 11.7.5 Middleware Chain Atomicity
+#### 12.7.5 Middleware Chain Atomicity
 
 **Call-level Isolation (MUST)**:
 
@@ -4652,7 +4718,7 @@ Thread 2:                      before1 → ...
 - Middleware **should** store call-level state through `context.data` (e.g., request ID, timer)
 - **Must not** use middleware instance variables to store call-level state (causes race conditions)
 
-#### 11.7.6 Sync/Async Mixing
+#### 12.7.6 Sync/Async Mixing
 
 **Bridging Strategy (MUST)**:
 
@@ -4680,7 +4746,7 @@ Implementations **must** support mixed calls of sync and async modules, bridging
 - Sync→Async bridging blocks caller thread, **should** avoid frequent use in async contexts
 - Async→Sync bridging needs thread pool, **should** configure reasonable thread pool size (default CPU cores × 2)
 
-#### 11.7.7 Resource Cleanup Guarantees
+#### 12.7.7 Resource Cleanup Guarantees
 
 Implementations **must** guarantee resource cleanup according to this table:
 
