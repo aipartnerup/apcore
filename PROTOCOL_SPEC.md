@@ -2,10 +2,10 @@
 
 > **Canonical Specification** - This document is the authoritative specification for the apcore protocol
 
-> Version: 1.3.0-draft
+> Version: 1.4.0-draft
 > Status: Draft Specification (RFC 2119 Conformant)
 > Stability: Specification content is stable, pending reference implementation verification
-> Last Updated: 2026-03-05
+> Last Updated: 2026-03-06
 
 ---
 
@@ -2860,7 +2860,7 @@ This mechanism is the bridge between annotation-level metadata and runtime gover
 |---------|----------|----------------------|
 | Question answered | "Is this caller **allowed** to invoke this module?" | "Does this **invocation** need human sign-off?" |
 | Mechanism | Pattern-based rule matching | Pluggable handler with external interaction |
-| Timing | Step 4 in Executor pipeline | Step 4.5 in Executor pipeline (after ACL) |
+| Timing | Step 4 in Executor pipeline | Step 5 in Executor pipeline (after ACL) |
 | Interaction | None (deterministic rule evaluation) | May involve user dialog, webhook, or agent confirmation |
 
 A caller may pass ACL (they have the role to call `deploy.prod`) but still require approval for each invocation (because the module is destructive).
@@ -2952,26 +2952,26 @@ ApprovalResult:
       description: "Additional metadata from the approval process"
 ```
 
-### 7.4 Executor Integration (Step 4.5)
+### 7.4 Executor Integration (Step 5)
 
-The Approval Gate is inserted into the Executor's pipeline between Step 4 (ACL Enforcement) and Step 5 (Input Validation):
+The Approval Gate is Step 5 in the Executor's 11-step pipeline, between ACL Enforcement and Input Validation:
 
 ```
-Executor Pipeline (updated):
-  Step 1: Context Creation
-  Step 2: Safety Checks
-  Step 3: Module Lookup
-  Step 4: ACL Enforcement
-  Step 4.5: Approval Gate        ← NEW
-  Step 5: Input Validation
-  Step 6: Middleware Before Chain
-  Step 7: Module Execution
-  Step 8: Output Validation
-  Step 9: Middleware After Chain
-  Step 10: Result Return
+Executor Pipeline (11 steps):
+  Step  1: Context Creation
+  Step  2: Safety Checks
+  Step  3: Module Lookup
+  Step  4: ACL Enforcement
+  Step  5: Approval Gate
+  Step  6: Input Validation
+  Step  7: Middleware Before Chain
+  Step  8: Module Execution
+  Step  9: Output Validation
+  Step 10: Middleware After Chain
+  Step 11: Result Return
 ```
 
-**Step 4.5 Algorithm:**
+**Step 5 Algorithm:**
 
 ```
 Algorithm: approval_gate(module, arguments, context, approval_handler)
@@ -2993,14 +2993,14 @@ Behavior:
        a. LET request = ApprovalRequest(module_id, arguments, context, annotations, ...)
        b. LET result = approval_handler.request_approval(request)
   5. SWITCH result.status:
-       "approved" → CONTINUE to Step 5
+       "approved" → CONTINUE to Step 6
        "rejected" → THROW ApprovalDeniedError(result)
        "timeout"  → THROW ApprovalTimeoutError(result)
        "pending"  → THROW ApprovalPendingError(result)
 ```
 
 **Key behaviors:**
-- When no `ApprovalHandler` is configured, the gate is **completely skipped** — backward compatible with existing code.
+- When no `ApprovalHandler` is configured, Step 5 is **completely skipped** — backward compatible with existing code.
 - The `_approval_token` mechanism (Phase B) allows clients to retry after external approval without re-triggering the approval flow.
 - The `_approval_token` key **must** be removed from arguments before passing to subsequent steps.
 
@@ -3076,7 +3076,7 @@ These handlers are **not** part of the apcore core specification — they are pr
 | Level | Requirement |
 |-------|-------------|
 | **Level 1 (Basic)** | `ApprovalHandler` protocol defined; Executor skips gate when handler is null |
-| **Level 2 (Standard)** | Step 4.5 implemented in `call()`, `call_async()`, and `stream()` paths; `AlwaysDenyHandler` and `AutoApproveHandler` provided |
+| **Level 2 (Standard)** | Step 5 implemented in `call()`, `call_async()`, and `stream()` paths; `AlwaysDenyHandler` and `AutoApproveHandler` provided |
 | **Level 3 (Full)** | Phase B support (`check_approval`, `_approval_token`); `CallbackApprovalHandler` provided; approval audit events emitted |
 
 ---
@@ -4260,6 +4260,43 @@ Interface: Executor
    */
   execute(module_id: String, method: String, inputs: Map, context: Context) → Map
 
+  /**
+   * [SHOULD] Non-destructive preflight check through Steps 1–6 of the
+   * execution pipeline without invoking module code or middleware.
+   *
+   * Runs: context creation, safety checks, module lookup, ACL enforcement,
+   * approval detection (report only, MUST NOT invoke ApprovalHandler),
+   * and input schema validation.
+   *
+   * MUST NOT: execute module code, run middleware, or modify external state.
+   *
+   * All check failures are collected into the result rather than thrown,
+   * so the caller can see every problem in a single round-trip.
+   *
+   * @param module_id — Canonical ID
+   * @param inputs    — Input parameters to validate
+   * @param context   — Optional execution context (for call-chain checks)
+   * @return result   — PreflightResult with per-check status
+   */
+  validate(module_id: String, inputs: Map, context: Context?) → PreflightResult
+
+/**
+ * Result of Executor.validate() preflight check.
+ *
+ * PreflightResult SHOULD be duck-type compatible with ValidationResult
+ * (i.e., it has `valid: Boolean` and `errors: List`), so that existing
+ * consumers of validate() continue to work after the enhancement.
+ */
+Type: PreflightCheckResult
+  check: String              // "module_id" | "module_lookup" | "call_chain" | "acl" | "approval" | "schema"
+  passed: Boolean
+  error: Map?                // Error details when passed=false; null when passed=true
+
+Type: PreflightResult
+  valid: Boolean             // True only if ALL checks passed
+  checks: List<PreflightCheckResult>
+  requires_approval: Boolean // True if module has requires_approval annotation
+
 Interface: ACLChecker
   /**
    * Check invocation permission
@@ -4393,7 +4430,7 @@ stream(inputs, context) → AsyncIterable<Record>
 
 **Executor.stream() pipeline:**
 
-1. Steps 1–6 identical to `call()`: context creation, safety checks, module lookup, ACL, input validation, before-middleware.
+1. Steps 1–7 identical to `call()`: context creation, safety checks, module lookup, ACL, approval gate, input validation, before-middleware.
 2. If module lacks `stream()`: fall back to `call()`, yield single chunk, return.
 3. Iterate `module.stream(inputs, context)`, yield each chunk to caller.
 4. After all chunks: validate accumulated output against `output_schema`, run after-middleware on accumulated result.
@@ -4430,6 +4467,7 @@ When bridging `Executor.stream()` to MCP, implementations SHOULD use the standar
 | OpenTelemetry integration | SHOULD | SHOULD | SHOULD | SHOULD | SHOULD |
 | Structured logging | MUST | MUST | MUST | MUST | MUST |
 | Error code specification | MUST | MUST | MUST | MUST | MUST |
+| Executor.validate() preflight | SHOULD | SHOULD | SHOULD | SHOULD | SHOULD |
 
 ### 12.4 Consistency Testing Requirements
 
@@ -4473,6 +4511,16 @@ Consistency Test Suite:
    - trace_id is valid UUID v4
    - Sensitive data redaction
    - Structured log format
+
+7. Preflight (validate) Tests:
+   - Valid module + valid inputs → PreflightResult.valid=true, all checks passed
+   - Invalid module_id format → module_id check failed, early return
+   - Unknown module → module_lookup check failed, early return
+   - ACL denial → acl check failed, valid=false
+   - Module with requires_approval → requiresApproval=true, approval check still passed
+   - Schema validation failure → schema check failed with error details
+   - PreflightResult.errors matches filtered failed checks (duck-type ValidationResult)
+   - validate() MUST NOT execute module code or run middleware
 ```
 
 ### 12.5 Implementation Roadmap
@@ -4508,6 +4556,11 @@ Phase 4: Advanced
 - Async: asyncio
 - Package management: pyproject.toml + uv/pip
 
+#### TypeScript
+- Schema: @sinclair/typebox
+- Async: async/await (Promise)
+- Package management: package.json
+
 #### Rust
 - Schema: serde + validator
 - Async: tokio
@@ -4522,6 +4575,11 @@ Phase 4: Advanced
 - Schema: Jackson + Bean Validation
 - Async: CompletableFuture / Virtual Threads
 - Package management: Maven / Gradle
+
+#### C / C++
+- Schema: cJSON (C) / nlohmann-json + valijson (C++)
+- Async: pthreads / std::async / libuv
+- Package management: CMake / vcpkg / Conan
 
 ### 12.7 Concurrency Model Specification
 
@@ -4777,6 +4835,86 @@ class DatabaseModule:
     def on_unload(self):
         self.pool.close()  # Cleanup long-term resource
 ```
+
+### 12.8 Executor.validate() Cross-Language Implementation Guide
+
+The `validate()` preflight method (§12.2, SHOULD level) runs Steps 1–6 of the Executor pipeline
+without executing module code or middleware. This section provides language-specific guidance for
+SDK implementers.
+
+#### 12.8.1 Design Principles
+
+1. **Collect, don't throw.** All check failures are appended to a `checks` list. The caller sees every problem in one call.
+2. **Early return only when subsequent checks are meaningless.** module_id format failure or module-not-found justifies early return because later checks require a valid module reference.
+3. **Reuse existing internals.** validate() calls the same helper functions used by the `call()` pipeline (regex check, registry lookup, ACL check, schema validation). No new capabilities are required.
+4. **Duck-type backward compatibility.** PreflightResult SHOULD expose `.valid` (Boolean) and `.errors` (List) so existing consumers of the old ValidationResult continue to work.
+
+#### 12.8.2 Error Handling Mapping
+
+The Python/TypeScript/Java implementations use try/catch to convert exceptions into check results.
+Languages with error-return semantics (Go, Rust, C) naturally map to this pattern:
+
+| Language Family | Pipeline helper style | validate() adaptation |
+|----------------|----------------------|----------------------|
+| **Python / TypeScript / Java** | Throws exceptions | `try { helper(); push(passed) } catch(e) { push(failed, e) }` |
+| **Go** | Returns `error` | `if err := helper(); err != nil { push(failed, err) } else { push(passed) }` |
+| **Rust** | Returns `Result<T, E>` | `match helper() { Ok(_) => push(passed), Err(e) => push(failed, e) }` |
+| **C / C++** | Returns error code / status | `status = helper(); if (status != OK) { push(failed, status) } else { push(passed) }` |
+
+> **Note:** Go and Rust error-return patterns are more natural than try/catch for this "collect all errors" flow.
+
+#### 12.8.3 PreflightResult Type Mapping
+
+```
+Python:     @dataclass PreflightResult          + @property errors
+TypeScript: interface PreflightResult            + readonly errors (computed in factory)
+Go:         type PreflightResult struct           + func (r *PreflightResult) Errors() []map[string]any
+Rust:       pub struct PreflightResult            + impl PreflightResult { pub fn errors(&self) -> Vec<...> }
+Java:       public record PreflightResult(...)    + public List<Map<String, Object>> errors()
+C:          typedef struct preflight_result_t     + preflight_result_errors(result, out, size)
+C++:        struct PreflightResult                + std::vector<Error> errors() const
+```
+
+#### 12.8.4 PreflightCheckResult Type Mapping
+
+```
+Python:     @dataclass(frozen=True) PreflightCheckResult { check: str, passed: bool, error: dict | None }
+TypeScript: interface PreflightCheckResult { readonly check: string; readonly passed: boolean; readonly error?: Record<string, unknown> }
+Go:         type PreflightCheckResult struct { Check string; Passed bool; Error map[string]any }
+Rust:       pub struct PreflightCheckResult { pub check: String, pub passed: bool, pub error: Option<HashMap<String, Value>> }
+Java:       public record PreflightCheckResult(String check, boolean passed, Map<String, Object> error)
+C:          typedef struct { const char* check; bool passed; cJSON* error; } preflight_check_result_t;
+C++:        struct PreflightCheckResult { std::string check; bool passed; std::optional<json> error; };
+```
+
+#### 12.8.5 Schema Validation Library Requirements
+
+validate() Check 6 (schema) reuses the same JSON Schema validation that `call()` Step 6 already performs.
+No additional schema library is required beyond what the SDK already uses:
+
+| Language | Recommended Library | Notes |
+|----------|-------------------|-------|
+| Python | Pydantic v2 | `model_validate()` for check, `ValidationError` for details |
+| TypeScript | @sinclair/typebox | `Value.Check()` + `Value.Errors()` |
+| Go | `santhosh-tekuri/jsonschema` or `xeipuuv/gojsonschema` | Mature, JSON Schema Draft 2020-12 |
+| Rust | `jsonschema` crate | `jsonschema::is_valid()` + `jsonschema::validate()` |
+| Java | `networknt/json-schema-validator` | Supports Draft 2020-12, bean validation alternative |
+| C++ | `valijson` or `nlohmann/json-schema-validator` | Fewer options, but functional |
+| C | No mature pure-C library | Recommend FFI to a C++ or Rust validator, or embed a lightweight subset |
+
+#### 12.8.6 Naming Convention
+
+Follow each language's idiomatic casing for PreflightCheckResult and PreflightResult fields:
+
+| Field (Protocol) | Python | TypeScript | Go | Rust | Java | C/C++ |
+|------------------|--------|------------|-----|------|------|-------|
+| `check` | `check` | `check` | `Check` | `check` | `check()` | `check` |
+| `passed` | `passed` | `passed` | `Passed` | `passed` | `passed()` | `passed` |
+| `error` | `error` | `error` | `Error` | `error` | `error()` | `error` |
+| `valid` | `valid` | `valid` | `Valid` | `valid` | `valid()` | `valid` |
+| `checks` | `checks` | `checks` | `Checks` | `checks` | `checks()` | `checks` |
+| `requires_approval` | `requires_approval` | `requiresApproval` | `RequiresApproval` | `requires_approval` | `requiresApproval()` | `requires_approval` |
+| `errors` (computed) | `errors` (property) | `errors` (readonly) | `Errors()` (method) | `errors()` (method) | `errors()` (method) | `errors()` (function) |
 
 ---
 
@@ -5075,3 +5213,4 @@ apcore supports three module definition methods to meet different scenario needs
 | 1.1.0-draft | 2026-02-07 | Added §5.11 Function-based Module Definition, §5.12 External Schema Binding, Appendix E Module Definition Methods Comparison |
 | 1.2.0-draft | 2026-02-09 | Revised §4.3 supplemented x-llm-description usage guide; Added §4.16 Strict Mode Export, §4.17 Export Profile |
 | 1.3.0-draft | 2026-03-01 | Added §7 Approval System (ApprovalHandler protocol, Executor Step 4.5, error types, built-in and protocol bridge handlers, phased implementation, conformance levels); Updated §4.4 requires_approval annotation to reference runtime enforcement; Added APPROVAL_DENIED/TIMEOUT/PENDING error codes to §8; Renumbered §7–§13 → §8–§14 |
+| 1.4.0-draft | 2026-03-06 | Renumbered Executor pipeline from 10 steps (with Step 4.5) to clean 11 steps — Approval Gate is now Step 5, subsequent steps shifted +1; Added Executor.validate() [SHOULD] to §12.2 with PreflightResult/PreflightCheckResult types for non-destructive preflight checks through Steps 1–6; Updated §7.4, §7.9, streaming protocol references to match new numbering; Added §12.8 Executor.validate() Cross-Language Implementation Guide (error handling mapping, type mapping for Python/TypeScript/Go/Rust/Java/C/C++, schema library requirements, naming conventions); Added C/C++ and TypeScript to §12.6; Added validate() preflight to §12.3 requirements table; Added Preflight Tests to §12.4 consistency test suite |

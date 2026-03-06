@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] - 2026-03-06
+
+### Added
+
+#### Protocol Specification
+- **Executor.validate() preflight** (§12.2) — `[SHOULD]` non-destructive preflight check through Steps 1–6 without invoking module code or middleware; new `PreflightResult` / `PreflightCheckResult` types with duck-type `ValidationResult` compatibility
+- **§12.8 Executor.validate() Cross-Language Implementation Guide** — error handling mapping, type mapping for Python/TypeScript/Go/Rust/Java/C/C++, schema library requirements, naming conventions
+- **Preflight Tests** added to §12.4 Consistency Test Suite (7 test cases)
+- **Context optional extension fields** — `cancel_token`, `services`, `redacted_inputs` with serialization rules (§5.7)
+- **New error codes** — `CONFIG_NOT_FOUND`, `CONFIG_INVALID`, `SCHEMA_CIRCULAR_REF`, `BINDING_FILE_INVALID`, `MIDDLEWARE_CHAIN_ERROR`, `VERSION_INCOMPATIBLE`, `ERROR_CODE_COLLISION`, `CIRCULAR_DEPENDENCY`, `DEPENDENCY_NOT_FOUND` (§8)
+- **New error classes** — `BindingFileInvalidError`, `MiddlewareChainError`, `VersionIncompatibleError`, `ErrorCodeCollisionError` added to error hierarchy
+- **AI error guidance fields** — `retryable`, `ai_guidance`, `user_fixable`, `suggestions` for improved LLM agent error handling
+- **AI intent metadata keys** (§4.6) — `x-when-to-use`, `x-when-not-to-use`, `x-common-mistakes`, `x-workflow-hints` conventions for LLM agents
+- **TypeScript** and **C/C++** added to §12.6 Language-Specific Implementation Notes
+
+### Changed
+- **`PROTOCOL_SPEC.md`** — bumped to v1.4.0-draft
+- **Executor pipeline renumbered** from 10 steps (with Step 4.5) to clean 11 steps — Approval Gate is now Step 5, subsequent steps shifted +1
+- **§7.4, §7.9, streaming protocol** references updated to match new 11-step numbering
+- **Executor.validate() preflight** added to §12.3 cross-language requirements table
+- **Section cross-references fixed** — §11.7→§12.7, §10.3→§11.3, §9.7→§10.7, §7→§8 (error code references)
+- **Retryability table** updated with new error codes; `MIDDLEWARE_CHAIN_ERROR` removed from forward-declared list
+- **`docs/api/context-object.md`** — added optional extension fields documentation
+- **`docs/api/executor-api.md`** — added AI error guidance fields and new error types
+- **`docs/concepts.md`** — expanded AI collaboration and cognitive interface concepts
+- **`SCOPE.md`** — updated to reflect new features
+
+---
+
 ## [0.4.0] - 2026-03-03
 
 ### Added
@@ -54,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Feature Documentation
 - `docs/features/acl-system.md` — full specification of the Access Control List system
-- `docs/features/core-executor.md` — detailed documentation of the 10-step execution pipeline
+- `docs/features/core-executor.md` — detailed documentation of the execution pipeline
 - `docs/features/decorator-bindings.md` — guide on the `@module` decorator and binding mechanics
 - `docs/features/middleware-system.md` — composable middleware pipeline specification
 - `docs/features/observability.md` — tracing, metrics, and structured logging documentation
