@@ -287,19 +287,29 @@ For a detailed multi-language guide, visit the **[Getting Started Guide](https:/
     ```
 
     ```python
-    from apcore import module, Registry, Executor
+    import apcore
 
-    # 1. Create Registry
-    registry = Registry()
+    # Use the global client for easy registration and calling
+    @apcore.module(id="math.add", description="Add two integers")
+    def add(a: int, b: int) -> int:
+        return a + b
 
-    # 2. Define module with @module decorator (Schema auto-inferred, auto-registered)
-    @module(id="math.add", description="Add two integers", registry=registry)
-    def add(a: int, b: int) -> dict:
-        return {"sum": a + b}
+    # Call directly
+    print(apcore.call("math.add", {"a": 10, "b": 5}))  # {'result': 15}
+    ```
 
-    # 3. Call
-    executor = Executor(registry=registry)
-    print(executor.call("math.add", {"a": 10, "b": 5}))  # {'sum': 15}
+    Or use the explicit client:
+
+    ```python
+    from apcore import APCore
+
+    client = APCore()
+
+    @client.module(id="math.add")
+    def add(a: int, b: int) -> int:
+        return a + b
+
+    print(client.call("math.add", {"a": 10, "b": 5}))
     ```
 
 === "TypeScript"

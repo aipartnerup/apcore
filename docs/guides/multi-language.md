@@ -14,7 +14,7 @@ One of the core designs of apcore is **cross-language interoperability**. Using 
           ┌───────┬───────┼───────┬───────┐
           ▼       ▼       ▼       ▼       ▼
        Python   Rust     Go     Java    TypeScript
-       Pydantic serde   struct  Jackson  Zod/Ajv
+        SDK      SDK     SDK     SDK      SDK
           │       │       │       │       │
           └───────┴───────┴───────┴───────┘
                           │
@@ -178,386 +178,29 @@ schemas/
 
 ### 3.2 How Each Language SDK Consumes Schema
 
-| Language | Consumption Method | Advantages | Disadvantages |
-|------|----------|------|------|
-| Python | Runtime loading → Pydantic dynamic generation | Flexible, no compilation needed | Slightly slower startup |
-| Rust | Compile-time code generation → serde struct | Type-safe, zero runtime overhead | Requires build step |
-| Go | Compile-time code generation → struct | Type-safe | Requires build step |
-| Java | Compile-time code generation → POJO | Type-safe, good IDE support | Requires build step |
-| TypeScript | Runtime loading → Zod schema | Flexible, good type inference | Runtime overhead |
+SDKs can consume YAML Schema files via two strategies:
 
-### 3.3 Code Generation vs Runtime Loading
+| Strategy | Best For | Description |
+|------|----------|------|
+| **Code Generation** | Compiled languages (Rust, Go, Java, etc.) | Generate native types from YAML Schema at build time. Type-safe, zero runtime overhead. |
+| **Runtime Loading** | Dynamic languages (Python, TypeScript, etc.) | Load and validate YAML Schema at runtime. Flexible, no build step needed. |
 
-**Code Generation (Recommended for compiled languages):**
-
-```bash
-# Generate Rust struct from YAML Schema
-apcore codegen --lang rust --schema schemas/ --output src/generated/
-
-# Generate Go struct from YAML Schema
-apcore codegen --lang go --schema schemas/ --output pkg/generated/
-
-# Generate Java POJO from YAML Schema
-apcore codegen --lang java --schema schemas/ --output src/main/java/generated/
-```
-
-**Runtime Loading (Recommended for dynamic languages):**
-
-```python
-# Python: Load YAML Schema at runtime
-from apcore import SchemaLoader
-
-loader = SchemaLoader(schemas_dir="./schemas")
-schema = loader.load("executor.email.send_email")
-# schema.input_schema -> Pydantic model class
-# schema.output_schema -> Pydantic model class
-```
-
-```typescript
-// TypeScript: Load YAML Schema at runtime
-import { SchemaLoader } from '@apcore/sdk';
-
-const loader = new SchemaLoader({ schemasDir: './schemas' });
-const schema = await loader.load('executor.email.send_email');
-// schema.inputSchema -> Zod schema
-// schema.outputSchema -> Zod schema
-```
+Each SDK **should** document its schema consumption approach in its own repository.
 
 ---
 
-## 4. SDK Patterns for Each Language
+## 4. SDK Implementation
 
-### 4.1 Python: Pydantic Integration
+Each language SDK **should** implement the Module interface following the language's idiomatic patterns. SDK-specific examples, patterns, and library choices are documented in each SDK's own repository.
 
-```python
-# extensions/executor/email/send_email.py
+**Key requirements for all SDKs:**
 
-from apcore import Module, ModuleAnnotations, ModuleExample, Context
-from pydantic import BaseModel, Field
-from typing import Literal, Optional, Union
-
-class SendEmailInput(BaseModel):
-    """Email sending input"""
-    to: Union[str, list[str]] = Field(..., description="Recipient(s)")
-    subject: str = Field(..., description="Email subject", max_length=200)
-    body: Optional[str] = Field(None, description="Email body (plain text)")
-    html: Optional[str] = Field(None, description="Email body (HTML)")
-    smtp_host: Optional[str] = Field(None, description="SMTP server address")
-    smtp_port: Optional[int] = Field(587, description="SMTP server port")
-
-class SendEmailOutput(BaseModel):
-    """Email sending output"""
-    success: bool = Field(..., description="Whether the send was successful")
-    message_id: Optional[str] = Field(None, description="Message ID")
-
-class SendEmail(Module):
-    """Email sending module"""
-
-    input_schema = SendEmailInput
-    output_schema = SendEmailOutput
-    description = "Send email via SMTP"
-
-    annotations = ModuleAnnotations(
-        readonly=False,
-        destructive=False,
-        idempotent=False,
-        open_world=True
-    )
-
-    def execute(self, inputs: dict, context: Context) -> dict:
-        params = SendEmailInput(**inputs)
-        # Implement sending logic...
-        return SendEmailOutput(
-            success=True,
-            message_id="msg_123"
-        ).model_dump()
-```
-
-### 4.2 Rust: serde + jsonschema
-
-```rust
-// extensions/executor/email/send_email.rs
-
-use apcore::{Module, Context, ModuleAnnotations, ModuleError};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-
-#[derive(Deserialize, Debug)]
-pub struct SendEmailInput {
-    pub to: StringOrArray,
-    pub subject: String,
-    pub body: Option<String>,
-    pub html: Option<String>,
-    pub smtp_host: Option<String>,
-    pub smtp_port: Option<u16>,
-}
-
-#[derive(Serialize, Debug)]
-pub struct SendEmailOutput {
-    pub success: bool,
-    pub message_id: Option<String>,
-}
-
-// Support for string or string[] input
-#[derive(Deserialize, Debug)]
-#[serde(untagged)]
-pub enum StringOrArray {
-    Single(String),
-    Multiple(Vec<String>),
-}
-
-pub struct SendEmail;
-
-impl Module for SendEmail {
-    fn execute(
-        &self,
-        inputs: Value,
-        context: &Context,
-    ) -> Result<Value, ModuleError> {
-        let params: SendEmailInput = serde_json::from_value(inputs)
-            .map_err(|e| ModuleError::validation(e.to_string()))?;
-
-        // Implement SMTP sending logic...
-
-        let output = SendEmailOutput {
-            success: true,
-            message_id: Some("msg_123".to_string()),
-        };
-
-        serde_json::to_value(output)
-            .map_err(|e| ModuleError::internal(e.to_string()))
-    }
-
-    fn annotations(&self) -> ModuleAnnotations {
-        ModuleAnnotations {
-            readonly: false,
-            destructive: false,
-            idempotent: false,
-            open_world: true,
-            requires_approval: false,
-        }
-    }
-}
-```
-
-### 4.3 Go: encoding/json + gojsonschema
-
-```go
-// extensions/executor/email/send_email.go
-
-package email
-
-import (
-    "encoding/json"
-    "github.com/apcore/apcore-go/pkg/apcore"
-)
-
-// SendEmailInput email sending input
-type SendEmailInput struct {
-    To       interface{} `json:"to" validate:"required"` // string or []string
-    Subject  string      `json:"subject" validate:"required,max=200"`
-    Body     *string     `json:"body,omitempty"`
-    HTML     *string     `json:"html,omitempty"`
-    SMTPHost *string     `json:"smtp_host,omitempty"`
-    SMTPPort *int        `json:"smtp_port,omitempty"`
-}
-
-// SendEmailOutput email sending output
-type SendEmailOutput struct {
-    Success   bool    `json:"success"`
-    MessageID *string `json:"message_id,omitempty"`
-}
-
-// SendEmail email sending module
-type SendEmail struct{}
-
-func (m *SendEmail) Execute(
-    inputs map[string]interface{},
-    ctx *apcore.Context,
-) (map[string]interface{}, error) {
-    // Parse input
-    data, err := json.Marshal(inputs)
-    if err != nil {
-        return nil, apcore.NewModuleError("MODULE_EXECUTE_ERROR", err.Error())
-    }
-
-    var params SendEmailInput
-    if err := json.Unmarshal(data, &params); err != nil {
-        return nil, apcore.NewValidationError(err.Error())
-    }
-
-    // Implement sending logic...
-
-    msgID := "msg_123"
-    output := SendEmailOutput{
-        Success:   true,
-        MessageID: &msgID,
-    }
-
-    // Convert to map
-    result, _ := json.Marshal(output)
-    var resultMap map[string]interface{}
-    json.Unmarshal(result, &resultMap)
-    return resultMap, nil
-}
-
-func (m *SendEmail) Annotations() apcore.ModuleAnnotations {
-    return apcore.ModuleAnnotations{
-        Readonly:    false,
-        Destructive: false,
-        Idempotent:  false,
-        OpenWorld:   true,
-    }
-}
-
-func (m *SendEmail) Description() string {
-    return "Send email via SMTP"
-}
-```
-
-### 4.4 Java: Jackson + json-schema-validator
-
-```java
-// extensions/executor/email/SendEmail.java
-
-package com.example.extensions.executor.email;
-
-import com.apcore.Module;
-import com.apcore.Context;
-import com.apcore.ModuleAnnotations;
-import com.apcore.ModuleError;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.Map;
-import java.util.Optional;
-
-public class SendEmail implements Module {
-
-    private static final ObjectMapper mapper = new ObjectMapper();
-
-    // Input type
-    public static class Input {
-        @JsonProperty("to")
-        public Object to; // String or List<String>
-
-        @JsonProperty("subject")
-        public String subject;
-
-        @JsonProperty("body")
-        public Optional<String> body = Optional.empty();
-
-        @JsonProperty("html")
-        public Optional<String> html = Optional.empty();
-
-        @JsonProperty("smtp_host")
-        public Optional<String> smtpHost = Optional.empty();
-
-        @JsonProperty("smtp_port")
-        public Optional<Integer> smtpPort = Optional.empty();
-    }
-
-    // Output type
-    public static class Output {
-        @JsonProperty("success")
-        public boolean success;
-
-        @JsonProperty("message_id")
-        public String messageId;
-    }
-
-    @Override
-    public Map<String, Object> execute(
-            Map<String, Object> inputs,
-            Context context
-    ) throws ModuleError {
-        Input params = mapper.convertValue(inputs, Input.class);
-
-        // Implement sending logic...
-
-        Output output = new Output();
-        output.success = true;
-        output.messageId = "msg_123";
-
-        return mapper.convertValue(output, Map.class);
-    }
-
-    @Override
-    public String getDescription() {
-        return "Send email via SMTP";
-    }
-
-    @Override
-    public ModuleAnnotations getAnnotations() {
-        return new ModuleAnnotations.Builder()
-            .readonly(false)
-            .destructive(false)
-            .idempotent(false)
-            .openWorld(true)
-            .build();
-    }
-}
-```
-
-### 4.5 TypeScript: Zod or Ajv
-
-```typescript
-// extensions/executor/email/sendEmail.ts
-
-import { Module, Context, ModuleAnnotations } from '@apcore/sdk';
-import { z } from 'zod';
-
-// Define Schema using Zod (keep consistent with YAML Schema)
-const SendEmailInputSchema = z.object({
-  to: z.union([
-    z.string().email(),
-    z.array(z.string().email())
-  ]).describe('Recipient(s)'),
-  subject: z.string().max(200).describe('Email subject'),
-  body: z.string().optional().describe('Email body (plain text)'),
-  html: z.string().optional().describe('Email body (HTML)'),
-  smtp_host: z.string().optional().describe('SMTP server address'),
-  smtp_port: z.number().optional().describe('SMTP server port'),
-});
-
-const SendEmailOutputSchema = z.object({
-  success: z.boolean().describe('Whether the send was successful'),
-  message_id: z.string().optional().describe('Message ID'),
-});
-
-type SendEmailInput = z.infer<typeof SendEmailInputSchema>;
-type SendEmailOutput = z.infer<typeof SendEmailOutputSchema>;
-
-export class SendEmail extends Module {
-  static inputSchema = SendEmailInputSchema;
-  static outputSchema = SendEmailOutputSchema;
-
-  description = 'Send email via SMTP';
-
-  annotations: ModuleAnnotations = {
-    readonly: false,
-    destructive: false,
-    idempotent: false,
-    openWorld: true,
-    requiresApproval: false,
-  };
-
-  async execute(
-    inputs: Record<string, unknown>,
-    context: Context
-  ): Promise<Record<string, unknown>> {
-    const params = SendEmailInputSchema.parse(inputs);
-
-    // Implement sending logic...
-
-    const output: SendEmailOutput = {
-      success: true,
-      message_id: 'msg_123',
-    };
-
-    return output;
-  }
-}
-```
+| Requirement | Description |
+|------|------|
+| Module interface | Implement `execute()`, `description`, `annotations`, `input_schema`, `output_schema` |
+| Schema validation | Validate inputs against `input_schema` and outputs against `output_schema` |
+| Canonical ID | Support directory-based ID generation and cross-language ID mapping |
+| Error handling | Return structured errors with standard error codes |
 
 ---
 
@@ -681,7 +324,7 @@ TypeScript:
 | `number` | `float` | `f64` | `float64` | `double` / `Double` | `number` |
 | `boolean` | `bool` | `bool` | `bool` | `boolean` / `Boolean` | `boolean` |
 | `null` | `None` | `Option::None` | `nil` | `null` | `null` |
-| `object` | `dict[str, Any]` | `HashMap<String, Value>` | `map[string]any` | `Map<String, Object>` | `Record<string, unknown>` |
+| `object` | `dict[str, Any]` | `HashMap<String, Value>` | `map[string]any` | `Map<String, Object>` | `Record<string, any>` |
 | `array` | `list[T]` | `Vec<T>` | `[]T` | `List<T>` | `T[]` |
 
 ### 6.2 Format Type Mapping
@@ -692,13 +335,13 @@ TypeScript:
 | `format: date` | `date` | `chrono::NaiveDate` | `time.Time` | `LocalDate` | `string` |
 | `format: uuid` | `uuid.UUID` | `uuid::Uuid` | `uuid.UUID` | `UUID` | `string` |
 | `format: email` | `str` | `String` | `string` | `String` | `string` |
-| `format: uri` | `str` | `String` / `url::Url` | `string` / `*url.URL` | `URI` | `string` |
+| `format: uri` | `str` | `String` | `string` | `String` | `string` |
 
 ### 6.3 Composite Type Mapping
 
 | JSON Schema | Python | Rust | Go | Java | TypeScript |
 |------------|--------|------|----|------|------------|
-| `enum: [...]` | `Literal[...]` | `enum` | `string` (const) | `enum` | `union type` |
+| `enum: [...]` | `Literal[...]` | `enum` | `type T string` + const | `enum` | union type |
 | `oneOf` / `anyOf` | `Union[A, B]` | `enum { A(A), B(B) }` | `interface{}` | `Object` | `A \| B` |
 | `T \| null` | `Optional[T]` | `Option<T>` | `*T` | `@Nullable T` | `T \| null` |
 | `additionalProperties: T` | `dict[str, T]` | `HashMap<String, T>` | `map[string]T` | `Map<String, T>` | `Record<string, T>` |
@@ -736,19 +379,20 @@ properties:
     x-llm-description: "Large integer transmitted as string to avoid JavaScript precision loss"
 ```
 
-**Handling by Language:**
-
-| Language | Recommendation |
-|------|------|
-| Python | `int` has unlimited precision, no special handling needed |
-| Rust | Use `i64` or `i128`, serialize using `String` |
-| Go | Use `int64`, be careful with large numbers in JSON serialization |
-| Java | Use `long` or `BigInteger`, Jackson handles by default |
-| TypeScript | Use `bigint` or `string`, recommend `string` for transmission |
+**Recommendation:** Use `type: string` with `pattern: "^[0-9]+$"` in Schema for integers that may exceed the safe range. Each language converts to its native large integer type.
 
 ### 7.2 DateTime and Timezone Handling
 
 **Problem:** Different languages handle timezones differently by default, which can lead to time discrepancies.
+
+**Best Practices:**
+
+| Rule | Description |
+|------|------|
+| Store in UTC | All timestamps unified in UTC for storage and transmission |
+| Display in local timezone | Convert to local timezone only at UI layer |
+| Always include timezone info | Avoid using "naive" time (time without timezone) |
+| Use ISO 8601 format | Uniformly use `2026-02-07T10:30:00Z` format |
 
 ```yaml
 # Schema recommends using ISO 8601 + UTC
@@ -759,53 +403,6 @@ properties:
     description: "Creation time (ISO 8601, UTC)"
     x-examples: ["2026-02-07T10:30:00Z"]
 ```
-
-**Timezone Handling by Language:**
-
-```python
-# Python: Always use UTC
-from datetime import datetime, timezone
-
-now = datetime.now(timezone.utc)
-iso_str = now.isoformat()  # "2026-02-07T10:30:00+00:00"
-```
-
-```rust
-// Rust: Use chrono's Utc
-use chrono::Utc;
-
-let now = Utc::now();
-let iso_str = now.to_rfc3339(); // "2026-02-07T10:30:00+00:00"
-```
-
-```go
-// Go: Use time.UTC
-now := time.Now().UTC()
-isoStr := now.Format(time.RFC3339) // "2026-02-07T10:30:00Z"
-```
-
-```java
-// Java: Use Instant
-import java.time.Instant;
-
-Instant now = Instant.now();
-String isoStr = now.toString(); // "2026-02-07T10:30:00Z"
-```
-
-```typescript
-// TypeScript: Use toISOString()
-const now = new Date();
-const isoStr = now.toISOString(); // "2026-02-07T10:30:00.000Z"
-```
-
-**Best Practices:**
-
-| Rule | Description |
-|------|------|
-| Store in UTC | All timestamps unified in UTC for storage and transmission |
-| Display in local timezone | Convert to local timezone only at UI layer |
-| Always include timezone info | Avoid using "naive" time (time without timezone) |
-| Use ISO 8601 format | Uniformly use `2026-02-07T10:30:00Z` format |
 
 ### 7.3 Unicode Normalization Differences
 
@@ -818,6 +415,9 @@ These two are visually identical but have different bytes.
 
 **Recommended Practice:**
 
+- All SDK implementations **should** normalize Unicode strings to NFC form
+- Use `x-constraints` in Schema to annotate Unicode handling requirements
+
 ```yaml
 # Annotate Unicode handling requirements in Schema
 properties:
@@ -825,37 +425,6 @@ properties:
     type: string
     description: "Username"
     x-constraints: "MUST use NFC normalization form"
-```
-
-**Normalization by Language:**
-
-```python
-# Python
-import unicodedata
-normalized = unicodedata.normalize("NFC", raw_string)
-```
-
-```rust
-// Rust
-use unicode_normalization::UnicodeNormalization;
-let normalized: String = raw_string.nfc().collect();
-```
-
-```go
-// Go
-import "golang.org/x/text/unicode/norm"
-normalized := norm.NFC.String(rawString)
-```
-
-```java
-// Java
-import java.text.Normalizer;
-String normalized = Normalizer.normalize(rawString, Normalizer.Form.NFC);
-```
-
-```typescript
-// TypeScript
-const normalized = rawString.normalize('NFC');
 ```
 
 ### 7.4 Null vs Undefined vs Missing Fields
@@ -879,14 +448,6 @@ properties:
 
 required: ["name"]  # Field must exist (but value can be null)
 ```
-
-**Mapping by Language:**
-
-| JSON State | Python | Rust | Go | Java | TypeScript |
-|-----------|--------|------|----|------|------------|
-| `"value"` | `"value"` | `Some("value")` | `"value"` | `"value"` | `"value"` |
-| `null` | `None` | `None` | `nil` | `null` | `null` |
-| Missing | `KeyError` | Deserialization failure / `None`(serde default) | Zero value | `null` | `undefined` |
 
 **Best Practices:**
 
@@ -950,13 +511,7 @@ properties:
     enum: ["pending", "in_progress", "completed", "failed"]
 ```
 
-| Language | Local Convention | Recommendation |
-|------|----------|------|
-| Python | `snake_case` | Use directly |
-| Rust | `PascalCase` | serde `rename_all = "snake_case"` |
-| Go | `PascalCase` | JSON tag `json:"status"` |
-| Java | `UPPER_SNAKE_CASE` | `@JsonValue` annotation |
-| TypeScript | `camelCase` | Use values defined in Schema directly |
+**Recommendation:** Enum values in JSON transmission **must** use the exact string values defined in Schema (typically `snake_case`). Each language SDK handles the mapping between its local naming convention and the Schema-defined values.
 
 ---
 

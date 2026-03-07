@@ -360,13 +360,13 @@ class DateTimeTypes(BaseModel):
 | `string` + `format: date-time` | `datetime` | `DateTime<Utc>` | `time.Time` | `OffsetDateTime` | `Date` / `string` |
 | `string` + `format: date` | `date` | `NaiveDate` | `civil.Date` | `LocalDate` | `string` |
 | `string` + `format: time` | `time` | `NaiveTime` | Custom | `LocalTime` | `string` |
-| `string` + `format: email` | `EmailStr` | `String` + validation | `string` + validation | `String` + `@Email` | `z.string().email()` |
-| `string` + `format: uri` | `AnyUrl` | `url::Url` | `string` + validation | `String` + `@URL` | `z.string().url()` |
-| `string` + `format: uuid` | `UUID4` | `uuid::Uuid` | `uuid.UUID` | `UUID` | `z.string().uuid()` |
-| `string enum` | `Literal[...]` / `StrEnum` | `enum` + `serde` | `type T string` + const | `enum` | `z.enum([...])` |
-| `integer enum` | `IntEnum` | `#[repr(i64)] enum` | `type T int64` + iota | `enum` | `z.union(z.literal(...))` |
-| `oneOf` | Discriminated Union | `enum` (tagged) | `interface{}` | Sealed Class | `z.discriminatedUnion()` |
-| `anyOf` | Union type | `enum` (untagged) | `interface{}` | `Object` | Union type |
+| `string` + `format: email` | `str` + validation | `String` + validation | `string` + validation | `String` + validation | `string` + validation |
+| `string` + `format: uri` | `str` + validation | `String` + validation | `string` + validation | `String` + validation | `string` + validation |
+| `string` + `format: uuid` | `UUID` | `Uuid` | `uuid.UUID` | `UUID` | `string` + validation |
+| `string enum` | `Literal[...]` / `StrEnum` | `enum` | `type T string` + const | `enum` | union type |
+| `integer enum` | `IntEnum` | `enum` | `type T int64` + iota | `enum` | union type |
+| `oneOf` | Discriminated Union | `enum` (tagged) | `interface{}` | Sealed Class | discriminated union |
+| `anyOf` | Union type | `enum` (untagged) | `interface{}` | `Object` | union type |
 | `T \| null` | `T \| None` | `Option<T>` | `*T` | `@Nullable T` | `T \| null` |
 
 > This table is a quick reference. For complete type mapping specifications (including serialization fidelity and edge cases), see [docs/spec/type-mapping.md](../spec/type-mapping.md).

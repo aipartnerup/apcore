@@ -15,15 +15,7 @@ apcore adopts JSON Schema Draft 2020-12 as the standard description format for m
 
 ### 1.2 Scope
 
-This specification covers type mappings for the following five languages:
-
-| Language | Schema Implementation Library | Notes |
-|------|-------------|------|
-| **Python** | Pydantic v2 | Reference implementation language |
-| **Rust** | serde + validator | Static typing, compile-time validation |
-| **Go** | struct + go-playground/validator | Static typing, struct tags |
-| **Java** | Jackson + Bean Validation | Static typing, annotation-driven |
-| **TypeScript** | Zod / TypeBox | Structural type system |
+This specification covers type mappings for the following languages: **Python**, **Rust**, **Go**, **Java**, and **TypeScript**. Specific library choices for schema validation are left to each SDK implementation.
 
 ### 1.3 Terminology
 
@@ -78,15 +70,7 @@ type: integer
 | Java | `long` | -2^63 ~ 2^63-1 | Can use `BigInteger` for larger range |
 | TypeScript | `number` | -(2^53-1) ~ 2^53-1 safe range | IEEE 754 double precision, see boundary cases |
 
-**Constraint Mappings:**
-
-| JSON Schema Constraint | Python (Pydantic) | Rust | Go | Java | TypeScript (Zod) |
-|-----------------|-------------------|------|----|------|-----------------|
-| `minimum: N` | `Field(ge=N)` | `#[validate(range(min=N))]` | `validate:"min=N"` | `@Min(N)` | `z.number().min(N)` |
-| `maximum: N` | `Field(le=N)` | `#[validate(range(max=N))]` | `validate:"max=N"` | `@Max(N)` | `z.number().max(N)` |
-| `exclusiveMinimum: N` | `Field(gt=N)` | Custom validation | Custom validation | Custom validation | `z.number().gt(N)` |
-| `exclusiveMaximum: N` | `Field(lt=N)` | Custom validation | Custom validation | Custom validation | `z.number().lt(N)` |
-| `multipleOf: N` | `Field(multiple_of=N)` | Custom validation | Custom validation | Custom validation | `z.number().multipleOf(N)` |
+**Supported Constraints:** `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf`. All SDK implementations **must** enforce these constraints during validation.
 
 ### 2.3 Number Type (`number`)
 
@@ -100,7 +84,7 @@ type: number
 
 | Language | Native Type | Precision | Notes |
 |------|---------|------|------|
-| Python | `float` | IEEE 754 double precision | Can also use `Decimal` in Pydantic |
+| Python | `float` | IEEE 754 double precision | Can also use `Decimal` for high precision |
 | Rust | `f64` | IEEE 754 double precision | — |
 | Go | `float64` | IEEE 754 double precision | — |
 | Java | `double` | IEEE 754 double precision | Can use `BigDecimal` for high precision |
@@ -171,69 +155,11 @@ required: [name]
 
 | Language | Native Type | Mapping Method |
 |------|---------|---------|
-| Python | `class MyModel(BaseModel)` | Pydantic Model, fields correspond to properties |
-| Rust | `struct MyStruct { ... }` | Struct, fields with `#[serde]` annotations |
-| Go | `type MyStruct struct { ... }` | Struct, fields with `json` tags |
-| Java | `class MyClass { ... }` | POJO, fields with Jackson annotations |
-| TypeScript | `interface MyType { ... }` or `z.object({...})` | Interface / Zod schema |
-
-**Example (Python):**
-
-```python
-from pydantic import BaseModel, Field
-from typing import Optional
-
-class Person(BaseModel):
-    name: str = Field(..., description="Name")
-    age: Optional[int] = Field(None, description="Age")
-```
-
-**Example (Rust):**
-
-```rust
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize)]
-struct Person {
-    name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    age: Option<i64>,
-}
-```
-
-**Example (Go):**
-
-```go
-type Person struct {
-    Name string `json:"name" validate:"required"`
-    Age  *int64 `json:"age,omitempty"`
-}
-```
-
-**Example (Java):**
-
-```java
-public class Person {
-    @JsonProperty("name")
-    @NotNull
-    private String name;
-
-    @JsonProperty("age")
-    private Long age;
-}
-```
-
-**Example (TypeScript):**
-
-```typescript
-import { z } from "zod";
-
-const PersonSchema = z.object({
-  name: z.string(),
-  age: z.number().int().optional(),
-});
-type Person = z.infer<typeof PersonSchema>;
-```
+| Python | `class MyModel` | Class with typed fields |
+| Rust | `struct MyStruct { ... }` | Struct with typed fields |
+| Go | `type MyStruct struct { ... }` | Struct with JSON tags |
+| Java | `class MyClass { ... }` | Class with typed fields |
+| TypeScript | `interface MyType { ... }` | Interface or object schema |
 
 ### 3.2 Array Type (`array` with `items`)
 
@@ -249,19 +175,13 @@ items:
 
 | Language | Native Type | Notes |
 |------|---------|------|
-| Python | `list[str]` | Pydantic supports generic lists |
+| Python | `list[str]` | Generic list |
 | Rust | `Vec<String>` | — |
 | Go | `[]string` | Slice type |
 | Java | `List<String>` | Usually uses `ArrayList` |
 | TypeScript | `string[]` or `Array<string>` | — |
 
-**Constraint Mappings:**
-
-| JSON Schema Constraint | Python (Pydantic) | Rust | Go | Java | TypeScript (Zod) |
-|-----------------|-------------------|------|----|------|-----------------|
-| `minItems: N` | `Field(min_length=N)` | `#[validate(length(min=N))]` | `validate:"min=N"` | `@Size(min=N)` | `z.array().min(N)` |
-| `maxItems: N` | `Field(max_length=N)` | `#[validate(length(max=N))]` | `validate:"max=N"` | `@Size(max=N)` | `z.array().max(N)` |
-| `uniqueItems: true` | Custom validator | `HashSet` check | Custom validation | Custom validation | Custom refine |
+**Supported Constraints:** `minItems`, `maxItems`, `uniqueItems`. All SDK implementations **must** enforce these constraints during validation.
 
 **Nested Array Example (Array of Objects):**
 
@@ -280,7 +200,7 @@ items:
 
 | Language | Native Type |
 |------|---------|
-| Python | `list[ErrorDetail]` (where `ErrorDetail` is a Pydantic Model) |
+| Python | `list[ErrorDetail]` (where `ErrorDetail` is a typed class) |
 | Rust | `Vec<ErrorDetail>` |
 | Go | `[]ErrorDetail` |
 | Java | `List<ErrorDetail>` |
@@ -310,7 +230,7 @@ type: [string, "null"]
 
 | Language | Native Type | Notes |
 |------|---------|------|
-| Python | `str \| None` or `Optional[str]` | Pydantic v2 recommends `str \| None` |
+| Python | `str \| None` or `Optional[str]` | `str \| None` syntax preferred |
 | Rust | `Option<String>` | Rust type system natively supports |
 | Go | `*string` | Pointer type represents nullable |
 | Java | `@Nullable String` or `Optional<String>` | Needs annotation marking |
@@ -339,9 +259,9 @@ enum: [pending, running, completed, failed, cancelled]
 | Language | Native Type | Example |
 |------|---------|------|
 | Python | `Literal["pending", "running", ...]` or `StrEnum` | `class Status(StrEnum): PENDING = "pending"` |
-| Rust | `enum Status { Pending, Running, ... }` | With `#[serde(rename_all = "snake_case")]` |
+| Rust | `enum Status { Pending, Running, ... }` | Map to snake_case for JSON serialization |
 | Go | `type Status string` + constants | `const StatusPending Status = "pending"` |
-| Java | `enum Status { PENDING("pending"), ... }` | Jackson enum serialization |
+| Java | `enum Status { PENDING("pending"), ... }` | Map to snake_case for JSON serialization |
 | TypeScript | `z.enum(["pending", "running", ...])` | Or `type Status = "pending" \| "running" \| ...` |
 
 ### 5.2 Integer Enum
@@ -388,7 +308,7 @@ required: [name]
 | Language | Required Field (`name`) | Optional Field (`note`) | Notes |
 |------|-------------------|-------------------|------|
 | Python | `name: str` | `note: str = ""` or `note: str \| None = None` | Use default value if has default, otherwise use `None` |
-| Rust | `name: String` | `note: Option<String>` with `#[serde(default)]` | — |
+| Rust | `name: String` | `note: Option<String>` with default | — |
 | Go | `Name string \`json:"name"\`` | `Note *string \`json:"note,omitempty"\`` | Pointer + omitempty |
 | Java | `@NotNull String name` | `String note` (can be null) | — |
 | TypeScript | `name: string` | `note?: string` | Optional property syntax |
@@ -500,11 +420,11 @@ required: [user]
 
 | Language | Strategy | Example |
 |------|------|------|
-| Python | Nested Pydantic Model | `class Address(BaseModel)` + `class User(BaseModel)` |
+| Python | Nested class | `class Address` + `class User` |
 | Rust | Nested struct | `struct Address { ... }` + `struct User { ... }` |
 | Go | Nested struct (can inline) | `type Address struct { ... }` + `type User struct { ... }` |
 | Java | Nested class or separate class | `class Address { ... }` + `class User { ... }` |
-| TypeScript | Nested Zod schema or interface | `const AddressSchema = z.object({...})` |
+| TypeScript | Nested interface or schema | Nested type definitions |
 
 **Naming Convention:**
 
@@ -542,8 +462,8 @@ oneOf:
 
 | Language | Native Type | Notes |
 |------|---------|------|
-| Python | `EmailNotification \| SmsNotification` (Pydantic Discriminated Union) | Uses `discriminator` field |
-| Rust | `enum Notification { Email(EmailData), Sms(SmsData) }` | With `#[serde(tag = "type")]` |
+| Python | `EmailNotification \| SmsNotification` (Discriminated Union) | Uses `discriminator` field |
+| Rust | `enum Notification { Email(EmailData), Sms(SmsData) }` | Tagged union |
 | Go | `interface{}` + runtime judgment | Go lacks native union types |
 | Java | Sealed Class or `@JsonSubTypes` | Java 17+ recommends sealed classes |
 | TypeScript | `z.discriminatedUnion("type", [...])` | Type guard |
@@ -563,7 +483,7 @@ anyOf:
 | Language | Native Type | Notes |
 |------|---------|------|
 | Python | `str \| int` | — |
-| Rust | `enum StringOrInt { Str(String), Int(i64) }` | Custom enum + `#[serde(untagged)]` |
+| Rust | `enum StringOrInt { Str(String), Int(i64) }` | Untagged union |
 | Go | `interface{}` | Runtime type assertion |
 | Java | `Object` + runtime type check | Or use custom wrapper class |
 | TypeScript | `string \| number` | — |
@@ -616,11 +536,11 @@ additionalProperties:
 
 | Language | Strategy | Notes |
 |------|------|------|
-| Python | Pydantic `model_config = ConfigDict(extra="allow")` + type annotation | — |
-| Rust | Fixed fields + `#[serde(flatten)] extra: HashMap<String, i64>` | — |
+| Python | Fixed fields + extra fields allowed via config | — |
+| Rust | Fixed fields + flattened extra `HashMap<String, i64>` | — |
 | Go | Fixed fields + `Extra map[string]int64` with custom JSON codec | — |
 | Java | Fixed fields + `@JsonAnySetter Map<String, Integer>` | — |
-| TypeScript | Zod `z.object({...}).catchall(z.number())` | — |
+| TypeScript | Object schema with catchall type | — |
 
 ### 10.3 `additionalProperties: false`
 
@@ -645,57 +565,9 @@ The `format` keyword in JSON Schema provides semantic validation for `string` ty
 | `date` | Date | ISO 8601 | `"2026-02-07"` |
 | `time` | Time | ISO 8601 | `"10:30:00"` |
 
-### 11.2 Format Validation Support by Language
+### 11.2 Format Validation Requirements
 
-**`email` Format:**
-
-| Language | Validation Method | Notes |
-|------|---------|------|
-| Python | `pydantic.EmailStr` | Requires `email-validator` package |
-| Rust | `validator::validate_email` | — |
-| Go | `validate:"email"` | go-playground/validator |
-| Java | `@Email` (Bean Validation) | — |
-| TypeScript | `z.string().email()` | — |
-
-**`uri` Format:**
-
-| Language | Validation Method | Notes |
-|------|---------|------|
-| Python | `pydantic.AnyUrl` / `pydantic.HttpUrl` | — |
-| Rust | `url::Url` | — |
-| Go | `validate:"url"` | — |
-| Java | `@URL` or `new URI(...)` | — |
-| TypeScript | `z.string().url()` | — |
-
-**`uuid` Format:**
-
-| Language | Validation Method | Notes |
-|------|---------|------|
-| Python | `pydantic.UUID4` or `uuid.UUID` | — |
-| Rust | `uuid::Uuid` | — |
-| Go | `uuid.Parse(...)` (google/uuid) | — |
-| Java | `UUID.fromString(...)` | — |
-| TypeScript | `z.string().uuid()` | — |
-
-**`ipv4` Format:**
-
-| Language | Validation Method | Notes |
-|------|---------|------|
-| Python | `ipaddress.IPv4Address` | — |
-| Rust | `std::net::Ipv4Addr` | — |
-| Go | `net.ParseIP(...)` | Needs additional v4 check |
-| Java | `InetAddress.getByName(...)` | — |
-| TypeScript | `z.string().ip({ version: "v4" })` | — |
-
-**`ipv6` Format:**
-
-| Language | Validation Method | Notes |
-|------|---------|------|
-| Python | `ipaddress.IPv6Address` | — |
-| Rust | `std::net::Ipv6Addr` | — |
-| Go | `net.ParseIP(...)` | Needs additional v6 check |
-| Java | `Inet6Address.getByName(...)` | — |
-| TypeScript | `z.string().ip({ version: "v6" })` | — |
+All SDK implementations **should** perform validation for the formats listed in §11.1. The specific validation libraries and methods are left to each SDK implementation.
 
 ---
 
@@ -710,20 +582,20 @@ The following table summarizes all JSON Schema type to language mappings:
 | `number` | `float` | `f64` | `float64` | `double` / `Double` | `number` |
 | `boolean` | `bool` | `bool` | `bool` | `boolean` / `Boolean` | `boolean` |
 | `null` | `None` | `()` | `nil` | `null` | `null` |
-| `object` (with properties) | `BaseModel` subclass | `struct` | `struct` | `class` | `z.object({})` |
+| `object` (with properties) | class | `struct` | `struct` | `class` | interface / object |
 | `array` (with items) | `list[T]` | `Vec<T>` | `[]T` | `List<T>` | `T[]` |
 | `T \| null` | `T \| None` | `Option<T>` | `*T` | `@Nullable T` | `T \| null` |
-| `string enum` | `Literal[...]` / `StrEnum` | `enum` + `serde` | `type T string` + const | `enum` | `z.enum([...])` |
-| `integer enum` | `IntEnum` | `#[repr(i64)] enum` | `type T int64` + iota | `enum` | `z.union(z.literal(...))` |
-| `oneOf` | Discriminated Union | `enum` (tagged) | `interface{}` | Sealed Class | `z.discriminatedUnion()` |
-| `anyOf` | Union type | `enum` (untagged) | `interface{}` | `Object` | Union type |
+| `string enum` | `Literal[...]` / `StrEnum` | `enum` | `type T string` + const | `enum` | union type |
+| `integer enum` | `IntEnum` | `enum` | `type T int64` + iota | `enum` | union type |
+| `oneOf` | Discriminated Union | `enum` (tagged) | `interface{}` | Sealed Class | discriminated union |
+| `anyOf` | Union type | `enum` (untagged) | `interface{}` | `Object` | union type |
 | `additionalProperties` | `dict[str, V]` | `HashMap<String, V>` | `map[string]V` | `Map<String, V>` | `Record<string, V>` |
 | `string` + `format: date-time` | `datetime` | `DateTime<Utc>` | `time.Time` | `OffsetDateTime` | `Date` / `string` |
 | `string` + `format: date` | `date` | `NaiveDate` | `civil.Date` | `LocalDate` | `string` |
 | `string` + `format: time` | `time` | `NaiveTime` | Custom | `LocalTime` | `string` |
-| `string` + `format: email` | `EmailStr` | `String` + validation | `string` + validation | `String` + `@Email` | `z.string().email()` |
-| `string` + `format: uri` | `AnyUrl` | `url::Url` | `string` + validation | `String` + `@URL` | `z.string().url()` |
-| `string` + `format: uuid` | `UUID4` | `uuid::Uuid` | `uuid.UUID` | `UUID` | `z.string().uuid()` |
+| `string` + `format: email` | `str` + validation | `String` + validation | `string` + validation | `String` + validation | `string` + validation |
+| `string` + `format: uri` | `str` + validation | `String` + validation | `string` + validation | `String` + validation | `string` + validation |
+| `string` + `format: uuid` | `UUID` | `Uuid` | `uuid.UUID` | `UUID` | `string` + validation |
 
 ---
 
@@ -837,12 +709,7 @@ IEEE 754 double-precision floating-point numbers cannot precisely represent all 
 
 **Solution Strategy:**
 
-1. For high-precision scenarios like financial calculations, **recommend** using `string` type for transmission, with each language converting to high-precision type:
-   - Python: `decimal.Decimal`
-   - Rust: `rust_decimal::Decimal`
-   - Go: `shopspring/decimal`
-   - Java: `BigDecimal`
-   - TypeScript: `decimal.js`
+1. For high-precision scenarios like financial calculations, **recommend** using `string` type for transmission, with each language converting to its native high-precision decimal type
 2. Use `x-precision` extension field in Schema to annotate precision requirements
 
 ### 14.3 Date Timezone Handling

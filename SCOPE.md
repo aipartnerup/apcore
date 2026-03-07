@@ -198,7 +198,7 @@ Use these scenarios to validate whether our boundaries are correct:
 - [ ] Schema and Meta files: Keep separated
 - [x] Existing application integration: **Core** (`module()` registration and external Schema binding are core standards)
 - [x] Framework adapters: **Won't Do** (independent repositories, apcore only provides adapter interface specification)
-- [x] API naming: **No prefix** (rely on language namespaces, except C language which uses `apcore_` prefix)
+- [x] API naming: **No prefix** (rely on language namespaces; languages without namespace mechanisms use `apcore_` prefix)
 
 ## 9. Document Structure
 

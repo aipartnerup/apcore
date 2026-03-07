@@ -130,11 +130,10 @@ relying on language-native namespace mechanisms to avoid conflicts:
 | Rust | Module path | `apcore::Module` |
 | TypeScript | Module import | `import { Module } from 'apcore'` |
 | Java | Package path | `import com.apcore.Module` |
-| C | Name prefix | `apcore_module_t`, `apcore_module(...)` |
 
 Implementations **MUST** follow these naming rules:
 - In languages with namespace mechanisms, **MUST NOT** add redundant prefixes to public APIs
-- In languages without namespace mechanisms (e.g., C), **MUST** use `apcore_` prefix
+- In languages without namespace mechanisms, **MUST** use `apcore_` prefix
 - Error types **SHOULD** be prefixed with their domain (e.g., `ModuleError`, `SchemaValidationError`)
 
 ---
@@ -1203,7 +1202,7 @@ schema:
   strategy: "yaml_first"  # yaml_first | native_first | yaml_only
 
   # yaml_first: Load from YAML first, native implementation can override
-  # native_first: Prefer native implementation (Pydantic/struct), YAML as fallback
+  # native_first: Prefer native implementation, YAML as fallback
   # yaml_only: Only use YAML (pure cross-language scenario)
 
   paths:
@@ -1217,13 +1216,7 @@ schema:
 
 ### 4.10 Language-specific Schema Implementations
 
-| Language | Native Implementation | YAML Loading Support |
-|------|----------|--------------|
-| Python | Pydantic v2 | YAML → Pydantic dynamic generation |
-| Rust | serde + validator | YAML → JSONSchema runtime validation |
-| Go | struct + go-playground/validator | YAML → JSONSchema runtime validation |
-| Java | Jackson + Bean Validation | YAML → POJO code generation |
-| TypeScript | Zod / TypeBox | YAML → Zod schema generation |
+Each language SDK **must** provide a native schema implementation that supports JSON Schema Draft 2020-12 validation and YAML schema loading. The specific library choices are left to SDK implementers.
 
 ### 4.11 Schema References ($ref)
 
@@ -4453,21 +4446,20 @@ When bridging `Executor.stream()` to MCP, implementations SHOULD use the standar
 
 ### 12.3 Cross-language Implementation Requirements
 
-| Requirement | Python | Rust | Go | Java | TypeScript |
-|------|--------|------|----|------|------------|
-| Schema validation library | Pydantic v2 | serde + validator | struct + validator | Jackson + Bean Validation | Zod / Ajv |
-| Async model | asyncio | tokio | goroutine | CompletableFuture / Virtual Threads | async/await (Promise) |
-| Package management | pyproject.toml + uv/pip | Cargo.toml | go.mod | Maven / Gradle | package.json |
-| JSON Schema support | MUST | MUST | MUST | MUST | MUST |
-| YAML parsing | MUST | MUST | MUST | MUST | MUST |
-| Directory as ID | MUST | MUST | MUST | MUST | MUST |
-| ID Map cross-language conversion | MUST | MUST | MUST | MUST | MUST |
-| ACL engine | MUST | MUST | MUST | MUST | MUST |
-| Middleware onion model | MUST | MUST | MUST | MUST | MUST |
-| OpenTelemetry integration | SHOULD | SHOULD | SHOULD | SHOULD | SHOULD |
-| Structured logging | MUST | MUST | MUST | MUST | MUST |
-| Error code specification | MUST | MUST | MUST | MUST | MUST |
-| Executor.validate() preflight | SHOULD | SHOULD | SHOULD | SHOULD | SHOULD |
+All SDK implementations **must** satisfy the following requirements regardless of language:
+
+| Requirement | Level |
+|------|--------|
+| JSON Schema Draft 2020-12 validation | MUST |
+| YAML parsing | MUST |
+| Directory as ID | MUST |
+| ID Map cross-language conversion | MUST |
+| ACL engine | MUST |
+| Middleware onion model | MUST |
+| Structured logging | MUST |
+| Error code specification | MUST |
+| OpenTelemetry integration | SHOULD |
+| Executor.validate() preflight | SHOULD |
 
 ### 12.4 Consistency Testing Requirements
 
@@ -4551,35 +4543,7 @@ Phase 4: Advanced
 
 ### 12.6 Language-specific Guidelines
 
-#### Python
-- Schema: Pydantic v2
-- Async: asyncio
-- Package management: pyproject.toml + uv/pip
-
-#### TypeScript
-- Schema: @sinclair/typebox
-- Async: async/await (Promise)
-- Package management: package.json
-
-#### Rust
-- Schema: serde + validator
-- Async: tokio
-- Package management: Cargo.toml
-
-#### Go
-- Schema: struct + validator
-- Async: goroutine
-- Package management: go.mod
-
-#### Java
-- Schema: Jackson + Bean Validation
-- Async: CompletableFuture / Virtual Threads
-- Package management: Maven / Gradle
-
-#### C / C++
-- Schema: cJSON (C) / nlohmann-json + valijson (C++)
-- Async: pthreads / std::async / libuv
-- Package management: CMake / vcpkg / Conan
+Each SDK implementation **should** use the idiomatic schema validation, async model, and package management conventions of its target language. Specific library choices are documented in each SDK's own repository.
 
 ### 12.7 Concurrency Model Specification
 
@@ -4851,70 +4815,56 @@ SDK implementers.
 
 #### 12.8.2 Error Handling Mapping
 
-The Python/TypeScript/Java implementations use try/catch to convert exceptions into check results.
-Languages with error-return semantics (Go, Rust, C) naturally map to this pattern:
+Each check in validate() calls the same helper functions used by the `call()` pipeline. Failures are appended to the `checks` list rather than thrown/returned immediately.
 
-| Language Family | Pipeline helper style | validate() adaptation |
-|----------------|----------------------|----------------------|
-| **Python / TypeScript / Java** | Throws exceptions | `try { helper(); push(passed) } catch(e) { push(failed, e) }` |
-| **Go** | Returns `error` | `if err := helper(); err != nil { push(failed, err) } else { push(passed) }` |
-| **Rust** | Returns `Result<T, E>` | `match helper() { Ok(_) => push(passed), Err(e) => push(failed, e) }` |
-| **C / C++** | Returns error code / status | `status = helper(); if (status != OK) { push(failed, status) } else { push(passed) }` |
+| Error Model | Pattern |
+|-------------|---------|
+| **Exception-based** (try/catch) | `try { helper(); push(passed) } catch(e) { push(failed, e) }` |
+| **Error-return** (Go, Rust) | `if err := helper(); err != nil { push(failed, err) } else { push(passed) }` |
 
-> **Note:** Go and Rust error-return patterns are more natural than try/catch for this "collect all errors" flow.
+> **Note:** Error-return patterns are more natural than try/catch for this "collect all errors" flow.
 
-#### 12.8.3 PreflightResult Type Mapping
+#### 12.8.3 PreflightResult Type
 
-```
-Python:     @dataclass PreflightResult          + @property errors
-TypeScript: interface PreflightResult            + readonly errors (computed in factory)
-Go:         type PreflightResult struct           + func (r *PreflightResult) Errors() []map[string]any
-Rust:       pub struct PreflightResult            + impl PreflightResult { pub fn errors(&self) -> Vec<...> }
-Java:       public record PreflightResult(...)    + public List<Map<String, Object>> errors()
-C:          typedef struct preflight_result_t     + preflight_result_errors(result, out, size)
-C++:        struct PreflightResult                + std::vector<Error> errors() const
-```
+`PreflightResult` **must** contain the following fields:
 
-#### 12.8.4 PreflightCheckResult Type Mapping
+| Field | Type | Description |
+|-------|------|-------------|
+| `valid` | boolean | `true` if all checks passed |
+| `checks` | list of `PreflightCheckResult` | Ordered list of check results |
+| `requires_approval` | boolean | Whether the module requires approval |
+| `errors` (computed) | list of error objects | Filtered view: only checks where `passed` is `false` |
 
-```
-Python:     @dataclass(frozen=True) PreflightCheckResult { check: str, passed: bool, error: dict | None }
-TypeScript: interface PreflightCheckResult { readonly check: string; readonly passed: boolean; readonly error?: Record<string, unknown> }
-Go:         type PreflightCheckResult struct { Check string; Passed bool; Error map[string]any }
-Rust:       pub struct PreflightCheckResult { pub check: String, pub passed: bool, pub error: Option<HashMap<String, Value>> }
-Java:       public record PreflightCheckResult(String check, boolean passed, Map<String, Object> error)
-C:          typedef struct { const char* check; bool passed; cJSON* error; } preflight_check_result_t;
-C++:        struct PreflightCheckResult { std::string check; bool passed; std::optional<json> error; };
-```
+#### 12.8.4 PreflightCheckResult Type
 
-#### 12.8.5 Schema Validation Library Requirements
+`PreflightCheckResult` **must** contain the following fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `check` | string | Check name (e.g., `"module_id_format"`, `"acl"`, `"schema"`) |
+| `passed` | boolean | Whether the check passed |
+| `error` | error object or null | Error details when `passed` is `false` |
+
+#### 12.8.5 Schema Validation
 
 validate() Check 6 (schema) reuses the same JSON Schema validation that `call()` Step 6 already performs.
-No additional schema library is required beyond what the SDK already uses:
-
-| Language | Recommended Library | Notes |
-|----------|-------------------|-------|
-| Python | Pydantic v2 | `model_validate()` for check, `ValidationError` for details |
-| TypeScript | @sinclair/typebox | `Value.Check()` + `Value.Errors()` |
-| Go | `santhosh-tekuri/jsonschema` or `xeipuuv/gojsonschema` | Mature, JSON Schema Draft 2020-12 |
-| Rust | `jsonschema` crate | `jsonschema::is_valid()` + `jsonschema::validate()` |
-| Java | `networknt/json-schema-validator` | Supports Draft 2020-12, bean validation alternative |
-| C++ | `valijson` or `nlohmann/json-schema-validator` | Fewer options, but functional |
-| C | No mature pure-C library | Recommend FFI to a C++ or Rust validator, or embed a lightweight subset |
+No additional schema library is required beyond what the SDK already uses.
 
 #### 12.8.6 Naming Convention
 
 Follow each language's idiomatic casing for PreflightCheckResult and PreflightResult fields:
 
-| Field (Protocol) | Python | TypeScript | Go | Rust | Java | C/C++ |
-|------------------|--------|------------|-----|------|------|-------|
-| `check` | `check` | `check` | `Check` | `check` | `check()` | `check` |
-| `passed` | `passed` | `passed` | `Passed` | `passed` | `passed()` | `passed` |
-| `error` | `error` | `error` | `Error` | `error` | `error()` | `error` |
-| `valid` | `valid` | `valid` | `Valid` | `valid` | `valid()` | `valid` |
-| `checks` | `checks` | `checks` | `Checks` | `checks` | `checks()` | `checks` |
-| `requires_approval` | `requires_approval` | `requiresApproval` | `RequiresApproval` | `requires_approval` | `requiresApproval()` | `requires_approval` |
-| `errors` (computed) | `errors` (property) | `errors` (readonly) | `Errors()` (method) | `errors()` (method) | `errors()` (method) | `errors()` (function) |
+| Field (Protocol) | snake_case languages | camelCase languages | PascalCase languages |
+|------------------|---------------------|--------------------|--------------------|
+| `check` | `check` | `check` | `Check` |
+| `passed` | `passed` | `passed` | `Passed` |
+| `error` | `error` | `error` | `Error` |
+| `valid` | `valid` | `valid` | `Valid` |
+| `checks` | `checks` | `checks` | `Checks` |
+| `requires_approval` | `requires_approval` | `requiresApproval` | `RequiresApproval` |
+| `errors` (computed) | `errors` | `errors` | `Errors()` |
+
+> **Convention:** snake_case (Python, Rust), camelCase (TypeScript, Java methods), PascalCase (Go exported fields). Other languages follow their idiomatic convention.
 
 ---
 
@@ -5185,7 +5135,7 @@ apcore supports three module definition methods to meet different scenario needs
 | Dimension | Class-based (Class Definition) | Function-based (Functional) | External Binding (External Binding) |
 |------|---------------------|------------------------|---------------------------|
 | **Definition Method** | Inherit Module base class | `@module` / `module()` | YAML binding file |
-| **Schema Source** | Pydantic Model / YAML | Type annotation auto-generation | YAML explicit definition / auto_schema |
+| **Schema Source** | Native model / YAML | Type annotation auto-generation | YAML explicit definition / auto_schema |
 | **Code Invasiveness** | High (need inherit base class) | Low (add decorator or function call) | Zero (no source code modification) |
 | **Applicable Scenarios** | New module development | Existing function/method wrapping | Existing application zero-modification integration |
 | **Lifecycle Hooks** | on_load / on_unload | Not supported | Not supported |
@@ -5194,14 +5144,13 @@ apcore supports three module definition methods to meet different scenario needs
 
 **Cross-language Syntax Reference:**
 
-| Language | Class-based | Function-based (Decorator) | Function-based (Function Call) | External Binding |
+Each language SDK **should** provide idiomatic module definition syntax. The following illustrates the general patterns:
+
+| Pattern | Class-based | Decorator/Attribute | Function Call | External Binding |
 |------|------------|--------------------------|-------------------------|-----------------|
-| Python | `class M(Module)` | `@module(id=...)` | `module(fn, id=...)` | YAML |
-| TypeScript | `class M extends Module` | `@module({id: ...})` | `module(fn, {id: ...})` | YAML |
-| Java | `class M implements Module` | `@Module(id=...)` | `Apcore.module(fn, id)` | YAML |
-| Rust | `impl Module for M` | `#[module(id=...)]` | `apcore::module(id, fn)` | YAML |
-| Go | `type M struct` + `Module` interface | — | `apcore.Module(id, fn)` | YAML |
-| C | `apcore_module_t` struct | — | `apcore_module(id, fn)` | YAML |
+| Description | Inherit/implement Module interface | Language-native annotation | Wrap existing callable | YAML binding file |
+| Example (Python) | `class M(Module)` | `@module(id=...)` | `module(fn, id=...)` | YAML |
+| Example (TypeScript) | `class M extends Module` | `@module({id: ...})` | `module(fn, {id: ...})` | YAML |
 
 ---
 
