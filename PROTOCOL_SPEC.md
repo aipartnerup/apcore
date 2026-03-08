@@ -1811,6 +1811,10 @@ Interface: Module
 
   Optional implementations:
     execute_async(inputs: Map<String, Any>, context: Context) → Future<Map<String, Any>>
+      # Deprecated as a separate method. Implementations typically expose a
+      # single execute() method. The framework auto-detects sync vs async
+      # (e.g., via inspect.iscoroutinefunction) and handles invocation
+      # accordingly. execute_async is retained here for reference only.
     validate(inputs: Map<String, Any>) → ValidationResult
     on_load() → void
     on_unload() → void
@@ -1848,7 +1852,7 @@ module_interface:
       description: "Execute module main logic"
       input: "Defined by input_schema"
       output: "Defined by output_schema"
-      async_variant: "execute_async"  # Async version
+      async_variant: "execute_async"  # Deprecated: framework auto-detects sync/async
 
   # Optional attributes
   optional_attributes:
@@ -2349,9 +2353,9 @@ Parameter-level description:
 | Function Type | Mapping |
 |---------|------|
 | `def func(...)` | `execute()` |
-| `async def func(...)` | `execute_async()` |
+| `async def func(...)` | `execute()` |
 
-Implementations **should** support both sync and async functions. Async functions **should** map to module's `execute_async()` method.
+Implementations **should** support both sync and async functions. The framework auto-detects whether a function is sync or async and handles invocation accordingly. Both map to the module's `execute()` method; the separate `execute_async()` method is deprecated.
 
 #### 5.11.9 Context Injection
 
@@ -2702,7 +2706,7 @@ audit:
 | `callers` | **MUST** | `list[string]` | Caller patterns (OR logic: any match is sufficient) |
 | `targets` | **MUST** | `list[string]` | Target patterns (OR logic: any match is sufficient) |
 | `effect` | **MUST** | `"allow" \| "deny"` | Access decision |
-| `description` | **MUST** | `string` | Human-readable rule description |
+| `description` | **SHOULD** | `string` | Human-readable rule description |
 | `conditions` | **MAY** | `object` | Additional conditions (all must pass, AND logic) |
 
 **Conditions sub-fields:**
@@ -3739,11 +3743,11 @@ logging:
 metrics:
   - name: "apcore_module_calls_total"
     type: counter
-    labels: [module_id, method, status]
+    labels: [module_id, status]
 
   - name: "apcore_module_duration_seconds"
     type: histogram
-    labels: [module_id, method]
+    labels: [module_id]
 
   - name: "apcore_module_errors_total"
     type: counter
@@ -3853,7 +3857,7 @@ middleware:
       can_abort: true
 
     - name: "after"
-      params: [module_id, output, context]
+      params: [module_id, inputs, output, context]
       can_modify: [output]
 
     - name: "on_error"
@@ -4246,9 +4250,14 @@ Interface: Registry
 
 Interface: Executor
   /**
-   * Execute module method
+   * Call a module through the execution pipeline.
+   *
+   * Note: In implementations, this is exposed as `call()` (sync) and
+   * `call_async()` (async). The separate `execute(module_id, method, ...)`
+   * signature is folded into `call()` — the executor always runs the
+   * module's `execute()` method through the full pipeline.
+   *
    * @param module_id — Canonical ID
-   * @param method    — Method name (execute|validate|describe)
    * @param inputs    — Input parameters (conform to input_schema)
    * @param context   — Execution context
    * @return output   — Output result (conform to output_schema)
@@ -4257,7 +4266,7 @@ Interface: Executor
    * @throws ACL_DENIED               — Permission denied
    * @throws MODULE_EXECUTION_ERROR   — Module execution exception
    */
-  execute(module_id: String, method: String, inputs: Map, context: Context) → Map
+  call(module_id: String, inputs: Map, context: Context) → Map
 
   /**
    * [SHOULD] Non-destructive preflight check through Steps 1–6 of the
@@ -4309,11 +4318,13 @@ Interface: ACLChecker
 Interface: MiddlewareManager
   /**
    * Register middleware
-   * @param id         — Middleware identifier
    * @param middleware  — Middleware instance
-   * @param priority   — Priority (0-1000, higher executes first)
+   *
+   * Note: Priority is determined by registration order, not by an explicit
+   * priority parameter. Middleware registered first executes first (before)
+   * and last (after), following the onion model.
    */
-  add(id: String, middleware: Middleware, priority: Integer) → void
+  add(middleware: Middleware) → void
 
   /**
    * Execute middleware chain in priority order.

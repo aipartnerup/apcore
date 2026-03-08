@@ -31,19 +31,19 @@ The executor processes every module call through the following pipeline:
 
 4. **ACL Enforcement** -- The caller's `Identity` (extracted from the context) is checked against the module's access control list. Unauthorized calls are rejected before any execution occurs.
 
-4.5. **Approval Gate** -- If an `ApprovalHandler` is configured and the module declares `requires_approval=true`, the handler is invoked to obtain approval before proceeding. The handler may block for human input or return immediately. Rejected or timed-out approvals raise `ApprovalDeniedError` or `ApprovalTimeoutError`. Skipped entirely when no handler is configured or the module does not require approval. See [Approval System](./approval-system.md).
+5. **Approval Gate** -- If an `ApprovalHandler` is configured and the module declares `requires_approval=true`, the handler is invoked to obtain approval before proceeding. The handler may block for human input or return immediately. Rejected or timed-out approvals raise `ApprovalDeniedError` or `ApprovalTimeoutError`. Skipped entirely when no handler is configured or the module does not require approval. See [Approval System](./approval-system.md).
 
-5. **Input Validation with Pydantic + Sensitive Field Redaction** -- The call's input payload is validated against the module's input schema (a dynamically generated Pydantic model). Fields annotated with `x-sensitive` are redacted from logs and error messages using the `redact_sensitive` utility.
+6. **Input Validation with Pydantic + Sensitive Field Redaction** -- The call's input payload is validated against the module's input schema (a dynamically generated Pydantic model). Fields annotated with `x-sensitive` are redacted from logs and error messages using the `redact_sensitive` utility.
 
-6. **Middleware Before Chain** -- All registered "before" middleware functions are executed in order. Each middleware receives the context and validated input, and may modify or enrich them before the module runs.
+7. **Middleware Before Chain** -- All registered "before" middleware functions are executed in order. Each middleware receives the context and validated input, and may modify or enrich them before the module runs.
 
-7. **Module Execution with Timeout** -- The module's handler is invoked. Timeout enforcement is implemented via daemon threads for synchronous handlers and an async bridge for asynchronous handlers. If the handler exceeds the configured timeout, the call is cancelled and a timeout error is returned.
+8. **Module Execution with Timeout** -- The module's handler is invoked. Timeout enforcement is implemented via daemon threads for synchronous handlers and an async bridge for asynchronous handlers. If the handler exceeds the configured timeout, the call is cancelled and a timeout error is returned.
 
-8. **Output Validation** -- The module's return value is validated against its output schema. Invalid output triggers an error rather than allowing malformed data to propagate.
+9. **Output Validation** -- The module's return value is validated against its output schema. Invalid output triggers an error rather than allowing malformed data to propagate.
 
-9. **Middleware After Chain** -- All registered "after" middleware functions are executed in order with access to the context, input, and output. These may perform logging, transformation, or cleanup.
+10. **Middleware After Chain** -- All registered "after" middleware functions are executed in order with access to the context, input, and output. These may perform logging, transformation, or cleanup.
 
-10. **Result Return** -- The final validated output (or error) is packaged into a structured result and returned to the caller.
+11. **Result Return** -- The final validated output (or error) is packaged into a structured result and returned to the caller.
 
 ### Key Classes
 
@@ -71,7 +71,7 @@ The `validate()` method on the executor provides a standalone validation path th
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `executor.py` | 634 | Core execution engine implementing the 10-step pipeline |
+| `executor.py` | 634 | Core execution engine implementing the 11-step pipeline |
 | `context.py` | 66 | Context and Identity data classes |
 | `config.py` | 29 | Executor configuration data class |
 | `errors.py` | 395 | Structured error types for every failure mode in the pipeline |

@@ -196,7 +196,7 @@ executor = Executor(
 )
 ```
 
-When an `approval_handler` is set, modules declaring `requires_approval=true` in their annotations will trigger the handler at Step 4.5 of the execution pipeline. See [Approval System](../features/approval-system.md).
+When an `approval_handler` is set, modules declaring `requires_approval=true` in their annotations will trigger the handler at Step 5 of the execution pipeline. See [Approval System](../features/approval-system.md).
 
 ---
 

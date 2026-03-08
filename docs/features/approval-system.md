@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Approval System provides runtime enforcement of the `requires_approval` annotation. When a module declares `requires_approval=true` and an `ApprovalHandler` is configured on the Executor, the handler is invoked at **Step 4.5** of the execution pipeline — after ACL checks pass and before input validation begins. This allows human or automated review of sensitive operations before they execute.
+The Approval System provides runtime enforcement of the `requires_approval` annotation. When a module declares `requires_approval=true` and an `ApprovalHandler` is configured on the Executor, the handler is invoked at **Step 5** of the execution pipeline — after ACL checks pass and before input validation begins. This allows human or automated review of sensitive operations before they execute.
 
 The Approval System is architecturally separate from the ACL System. ACL answers "who is allowed to call this module?" while Approval answers "does this particular invocation need sign-off before proceeding?"
 
@@ -11,7 +11,7 @@ See [PROTOCOL_SPEC §7](../../PROTOCOL_SPEC.md#7-approval-system-approval-system
 ## Requirements
 
 - Provide a pluggable `ApprovalHandler` protocol that SDK implementations can satisfy with custom logic.
-- Enforce the approval gate at Executor Step 4.5, after ACL (Step 4) and before Input Validation (Step 5).
+- Enforce the approval gate at Executor Step 5, after ACL (Step 4) and before Input Validation (Step 6).
 - Skip the approval gate entirely when no `ApprovalHandler` is configured, or when the module does not declare `requires_approval=true`.
 - Support synchronous approval flows (Phase A) where `request_approval()` blocks until a decision is returned.
 - Optionally support asynchronous approval flows (Phase B) where a `pending` status is returned with an `approval_id`, and execution resumes when the client retries with an `_approval_token`.
@@ -20,16 +20,16 @@ See [PROTOCOL_SPEC §7](../../PROTOCOL_SPEC.md#7-approval-system-approval-system
 
 ## Technical Design
 
-### Approval Gate (Executor Step 4.5)
+### Approval Gate (Executor Step 5)
 
-The approval gate is inserted between ACL Enforcement (Step 4) and Input Validation (Step 5) in the Executor's pipeline. The algorithm:
+The approval gate is inserted between ACL Enforcement (Step 4) and Input Validation (Step 6) in the Executor's pipeline. The algorithm:
 
 1. Check if `approval_handler` is configured on the Executor.
-2. If not configured, skip to Step 5.
+2. If not configured, skip to Step 6.
 3. Check if the target module declares `requires_approval=true` in its annotations.
-4. If not, skip to Step 5.
+4. If not, skip to Step 6.
 5. If arguments contain `_approval_token`, pop the token and call `approval_handler.check_approval(token)` (Phase B resume). Otherwise build an `ApprovalRequest` and call `approval_handler.request_approval(request)`.
-6. If `approved` → proceed to Step 5.
+6. If `approved` → proceed to Step 6.
 7. If `rejected` → raise `ApprovalDeniedError`.
 8. If `timeout` → raise `ApprovalTimeoutError`.
 9. If `pending` (Phase B only) → raise `ApprovalPendingError` with `approval_id`.
@@ -118,12 +118,12 @@ These handlers are provided by the respective bridge packages, not by apcore cor
 | File | Purpose |
 |------|---------|
 | `approval.py` | `ApprovalHandler` protocol, `ApprovalRequest`, `ApprovalResult`, built-in handlers, approval error classes |
-| `executor.py` | Step 4.5 integration in `call()`, `call_async()`, `stream()` |
+| `executor.py` | Step 5 integration in `call()`, `call_async()`, `stream()` |
 
 ## Dependencies
 
 ### Internal
-- **Executor** — The approval gate is embedded in the Executor pipeline at Step 4.5.
+- **Executor** — The approval gate is embedded in the Executor pipeline at Step 5.
 - **Module Annotations** — The `requires_approval` field on `ModuleAnnotations` (or dict equivalent) triggers the gate.
 - **Context** — The full execution context (including identity, trace_id, call_chain) is passed to the handler via `ApprovalRequest`.
 
