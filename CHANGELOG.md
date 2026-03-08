@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] - 2026-03-07
+
+### Added
+
+#### Protocol Specification
+- **IDConverter implementation note** (§12.2) — SDKs MAY implement as utility function instead of class
+- **MiddlewareManager split-method pattern** (§12.2) — SDKs MAY use `execute_before`/`execute_after`/`execute_on_error` instead of unified `run_chain()`
+- **Module.stream() optional method** (§5.6) — Documented `stream()` as optional method in Module interface for streaming support
+
+#### Error Hierarchy
+- **`DependencyNotFoundError`** — New error class for `DEPENDENCY_NOT_FOUND` code (previously forward-declared)
+- **`FeatureNotImplementedError`** (Python) / **`NotImplementedError`** (TypeScript) — New error class for `GENERAL_NOT_IMPLEMENTED` code (previously forward-declared)
+
+### Changed
+- **Executor pipeline docs** — All references updated from "10-step" to "11-step" pipeline across README.md, docs/features/core-executor.md, docs/api/executor-api.md
+- **Context `logger` property** — Upgraded from SHOULD to MUST in docs/api/context-object.md (both SDKs already provide it)
+- **docs/api/module-interface.md** — Added optional `stream()` method documentation
+- **docs/getting-started.md** — Rewritten to recommend `APCore` unified client as primary approach
+
+---
+
 ## [0.5.0] - 2026-03-06
 
 ### Added

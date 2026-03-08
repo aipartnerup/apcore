@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Core Execution Engine is the central orchestration component of apcore. It processes module calls through a structured 10-step pipeline, handling everything from context creation and safety checks to module execution with timeout enforcement and result validation. The engine supports both synchronous and asynchronous execution paths, bridging between the two via threading and an async event loop bridge.
+The Core Execution Engine is the central orchestration component of apcore. It processes module calls through a structured 11-step pipeline, handling everything from context creation and safety checks to module execution with timeout enforcement and result validation. The engine supports both synchronous and asynchronous execution paths, bridging between the two via threading and an async event loop bridge.
 
 ## Requirements
 
@@ -16,7 +16,7 @@ The Core Execution Engine is the central orchestration component of apcore. It p
 
 ## Technical Design
 
-### 10-Step Execution Pipeline
+### 11-Step Execution Pipeline
 
 The executor processes every module call through the following pipeline:
 
@@ -47,7 +47,7 @@ The executor processes every module call through the following pipeline:
 
 ### Key Classes
 
-- **Executor** -- The main engine class that implements the 10-step pipeline. Manages middleware registration, timeout configuration, and the execution loop.
+- **Executor** -- The main engine class that implements the 11-step pipeline. Manages middleware registration, timeout configuration, and the execution loop.
 - **Context** -- Immutable data class carrying call metadata: caller identity, call chain history, depth counter, and propagated key-value state.
 - **Identity** -- Represents the caller's identity for ACL enforcement. Carries roles, permissions, and an identifier.
 - **Config** -- Configuration data class holding executor-level settings such as max call depth, timeout defaults, and throttle limits.

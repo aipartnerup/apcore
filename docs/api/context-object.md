@@ -72,7 +72,7 @@ class Context:
     # ── SHOULD-level members (optional for implementations) ──────────
 
     # Context-aware logger (automatically injects trace_id, module_id, caller_id)
-    # Level: SHOULD (not MUST). Implementations may provide equivalent functionality via a standalone ContextLogger class.
+    # Level: MUST. Implementations provide this via the Context itself or a standalone ContextLogger class.
     @property
     def logger(self) -> "ContextLogger":
         """Returns a logger that automatically injects context information"""

@@ -97,6 +97,20 @@ class Module(Protocol):
 
     # Note: Modules only need to define one execute() method, using either def or async def.
     # The framework automatically detects and selects the appropriate invocation method (sync or async), no need to define separately.
+
+    # ============ Optional: Streaming ============
+
+    async def stream(self, inputs: dict[str, Any], context: "Context") -> AsyncIterator[dict[str, Any]]:
+        """
+        Stream module output chunk by chunk (optional implementation)
+
+        When defined, Executor.stream() will call this method instead of execute().
+        Each yielded dict is a partial result chunk. The complete result is the
+        shallow merge of all yielded chunks.
+
+        Modules implementing stream() SHOULD also set annotations.streaming = True.
+        """
+        ...
 ```
 
 > **Important**: Modules only need to implement `execute()` and provide the required schema

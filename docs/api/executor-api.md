@@ -456,31 +456,31 @@ executor.call(module_id, inputs, context)
     │      └─ acl.check(caller_id, module_id, context)
     │      └─ If denied, throw ACLDeniedError
     │
-    ├─ 4.5. Approval gate (if approval_handler configured)
+    ├─ 5. Approval gate (if approval_handler configured)
     │      └─ Only for modules with requires_approval=true
     │      └─ approval_handler.request_approval(request)
     │      └─ If rejected, throw ApprovalDeniedError
     │      └─ If timeout, throw ApprovalTimeoutError
     │      └─ If pending, throw ApprovalPendingError (Phase B)
     │
-    ├─ 5. Input validation
+    ├─ 6. Input validation
     │      └─ Validate against input_schema
     │      └─ If failed, throw ValidationError
     │
-    ├─ 6. Middleware before
+    ├─ 7. Middleware before
     │      └─ middleware.before(module_id, inputs, context)
     │
-    ├─ 7. Execute module
+    ├─ 8. Execute module
     │      └─ module.execute(inputs, context)
     │      └─ If failed, call middleware on_error
     │
-    ├─ 8. Output validation
+    ├─ 9. Output validation
     │      └─ Validate against output_schema
     │
-    ├─ 9. Middleware after
+    ├─ 10. Middleware after
     │      └─ middleware.after(module_id, inputs, output, context)
     │
-    └─ 10. Return result
+    └─ 11. Return result
 ```
 
 ### 6.2 Automatic Context Handling

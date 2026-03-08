@@ -24,70 +24,102 @@ Whether you are building from scratch or upgrading a legacy system, apcore provi
 
 ## 2. Your First Module
 
-The easiest way to create a module is using the `@module` decorator (Python) or the `FunctionModule` class (TypeScript).
+The `APCore` client is the recommended entry point. It manages Registry and Executor for you.
 
 === "Python"
 
     ```python
-    from apcore import module, Registry
+    from apcore import APCore
 
-    registry = Registry()
+    client = APCore()
 
-    @module(id="math.add", description="Add two numbers", tags=["math"], registry=registry)
+    @client.module(id="math.add", description="Add two numbers", tags=["math"])
     def add(a: int, b: int) -> dict:
         return {"sum": a + b}
+
+    # Call the module
+    result = client.call("math.add", {"a": 10, "b": 5})
+    print(result)  # {'sum': 15}
+    ```
+
+    For simple scripts, you can also use the global `apcore.*` functions directly:
+
+    ```python
+    import apcore
+
+    @apcore.module(id="math.add", description="Add two numbers")
+    def add(a: int, b: int) -> dict:
+        return {"sum": a + b}
+
+    result = apcore.call("math.add", {"a": 10, "b": 5})
     ```
 
 === "TypeScript"
 
     ```typescript
     import { Type } from '@sinclair/typebox';
-    import { FunctionModule } from 'apcore-js';
+    import { APCore } from 'apcore-js';
 
-    const add = new FunctionModule({
-      moduleId: 'math.add',
+    const client = new APCore();
+
+    client.module({
+      id: 'math.add',
       description: 'Add two numbers',
       tags: ['math'],
       inputSchema: Type.Object({ a: Type.Number(), b: Type.Number() }),
       outputSchema: Type.Object({ sum: Type.Number() }),
       execute: (inputs) => ({ sum: (inputs.a as number) + (inputs.b as number) }),
     });
+
+    const result = await client.call('math.add', { a: 10, b: 5 });
+    console.log(result); // { sum: 15 }
     ```
 
-## 3. Registry and Execution
+## 3. Preflight Validation
 
-Modules are stored in a **Registry** and called through an **Executor**. The Executor handles validation, access control, and middleware.
+Before executing, you can validate inputs without running the module:
 
 === "Python"
 
     ```python
-    from apcore import Executor
-
-    # Registry already has "math.add" registered via @module(registry=...)
-    executor = Executor(registry=registry)
-
-    result = executor.call("math.add", {"a": 10, "b": 5})
-    print(result)  # {'sum': 15}
+    preflight = client.validate("math.add", {"a": 10, "b": 5})
+    if preflight.valid:
+        print("All checks passed")
+    else:
+        print(f"Errors: {preflight.errors}")
     ```
 
 === "TypeScript"
 
     ```typescript
-    import { Registry, Executor } from 'apcore-js';
-
-    // 1. Register the module
-    const registry = new Registry();
-    registry.register('math.add', add);
-
-    // 2. Create an executor
-    const executor = new Executor({ registry });
-
-    // 3. Call the module
-    const result = await executor.call('math.add', { a: 10, b: 5 });
-    console.log(result); // { sum: 15 }
+    const preflight = client.validate('math.add', { a: 10, b: 5 });
+    if (preflight.valid) {
+      console.log('All checks passed');
+    } else {
+      console.log('Errors:', preflight.errors);
+    }
     ```
 
-## 4. Auto-Discovery (Directory as ID)
+## 4. Streaming
+
+Modules that implement `stream()` can yield output chunks incrementally:
+
+=== "Python"
+
+    ```python
+    async for chunk in client.stream("my.streaming_module", {"query": "hello"}):
+        print(chunk)
+    ```
+
+=== "TypeScript"
+
+    ```typescript
+    for await (const chunk of client.stream('my.streaming_module', { query: 'hello' })) {
+      console.log(chunk);
+    }
+    ```
+
+## 5. Auto-Discovery (Directory as ID)
 
 Instead of manual registration, apcore can automatically discover modules in a directory.
 
@@ -102,9 +134,12 @@ Instead of manual registration, apcore can automatically discover modules in a d
     ```
 
     ```python
-    registry = Registry(extensions_dir="./extensions")
-    registry.discover()
+    from apcore import APCore
+
+    client = APCore()
+    client.discover()
     # Module ID is automatically "math.add"
+    result = client.call("math.add", {"a": 10, "b": 5})
     ```
 
 === "TypeScript"
@@ -118,21 +153,25 @@ Instead of manual registration, apcore can automatically discover modules in a d
     ```
 
     ```typescript
-    const registry = new Registry({ extensionsDir: './extensions' });
-    await registry.discover();
+    import { APCore } from 'apcore-js';
+
+    const client = new APCore();
+    await client.discover();
     // Module ID is automatically "math.add"
+    const result = await client.call('math.add', { a: 10, b: 5 });
     ```
 
-## 5. Adding Middleware
+## 6. Adding Middleware
 
 Middleware can intercept calls for logging, tracing, or security.
 
 === "Python"
 
     ```python
-    from apcore import LoggingMiddleware
+    from apcore import LoggingMiddleware, TracingMiddleware
 
-    executor.use(LoggingMiddleware())
+    client.use(LoggingMiddleware())
+    client.use(TracingMiddleware())
     ```
 
 === "TypeScript"
@@ -140,7 +179,35 @@ Middleware can intercept calls for logging, tracing, or security.
     ```typescript
     import { ObsLoggingMiddleware } from 'apcore-js';
 
-    executor.use(new ObsLoggingMiddleware());
+    client.use(new ObsLoggingMiddleware());
+    ```
+
+## 7. Advanced: Manual Registry + Executor
+
+For full control, you can manage Registry and Executor separately:
+
+=== "Python"
+
+    ```python
+    from apcore import Registry, Executor, module
+
+    registry = Registry(extensions_dir="./extensions")
+    registry.discover()
+
+    executor = Executor(registry=registry)
+    result = executor.call("math.add", {"a": 10, "b": 5})
+    ```
+
+=== "TypeScript"
+
+    ```typescript
+    import { Registry, Executor } from 'apcore-js';
+
+    const registry = new Registry({ extensionsDir: './extensions' });
+    await registry.discover();
+
+    const executor = new Executor({ registry });
+    const result = await executor.call('math.add', { a: 10, b: 5 });
     ```
 
 ## Next Steps

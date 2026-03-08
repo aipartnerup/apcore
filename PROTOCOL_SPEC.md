@@ -4160,7 +4160,7 @@ Implementations **must** handle middleware edge cases according to the following
 
 | Component | Responsibility | Phase |
 |------|------|------|
-| `IDConverter` | Canonical ID ↔ Local ID conversion | Phase 1 |
+| `IDConverter` | Canonical ID ↔ Local ID conversion (class or utility function) | Phase 1 |
 | `SchemaLoader` | Load YAML Schema | Phase 1 |
 | `Registry` | Module discovery, registration, loading | Phase 1 |
 | `Executor` | Module invocation, Schema validation | Phase 1 |
@@ -4191,6 +4191,12 @@ Interface: IDConverter
    * @return local_id    — Language-native format
    */
   from_canonical(canonical_id: String, language: String) → String
+
+  /**
+   * Implementation Note: SDKs MAY implement IDConverter as a standalone
+   * utility function (e.g., normalize_to_canonical_id()) rather than a
+   * class, provided the same conversion semantics are satisfied.
+   */
 
 Interface: SchemaLoader
   /**
@@ -4310,12 +4316,13 @@ Interface: MiddlewareManager
   add(id: String, middleware: Middleware, priority: Integer) → void
 
   /**
-   * Execute middleware chain in priority order
-   * @param module_id — Target module ID
-   * @param inputs    — Input parameters
-   * @param context   — Execution context
-   * @param next      — Next execution function (module's execute)
-   * @return output   — Final output
+   * Execute middleware chain in priority order.
+   *
+   * SDKs MAY implement this as a single run_chain() method or as
+   * separate phase methods (execute_before, execute_after, execute_on_error)
+   * called by the Executor at the appropriate pipeline steps. Both
+   * approaches are conformant provided the onion-model execution order
+   * is preserved.
    */
   run_chain(module_id: String, inputs: Map, context: Context, next: Function) → Map
 

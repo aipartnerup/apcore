@@ -225,7 +225,7 @@ extensions/
 
 ### Execution Flow
 
-A module call goes through a rigorous **10-step pipeline** (with a half-step for approval):
+A module call goes through a rigorous **11-step pipeline**:
 
 ```
 executor.call("executor.email.send_email", inputs, context)
@@ -234,13 +234,13 @@ executor.call("executor.email.send_email", inputs, context)
    ├─  2.  Safety checks: Verify call depth and detect circular calls
    ├─  3.  Lookup module: Find target module from Registry
    ├─  4.  ACL check: Verify caller has permission to call target module
-   ├─  4.5 Approval Gate: Check requires_approval, await human decision
-   ├─  5.  Input validation: Validate input parameters against input_schema
-   ├─  6.  Middleware before: Execute middleware before() hooks in sequence
-   ├─  7.  Module execution: Call module.execute(inputs, context)
-   ├─  8.  Output validation: Validate output result against output_schema
-   ├─  9.  Middleware after: Execute middleware after() hooks in reverse order
-   ├─ 10.  Return result
+   ├─  5.  Approval Gate: Check requires_approval, await human decision
+   ├─  6.  Input validation: Validate input parameters against input_schema
+   ├─  7.  Middleware before: Execute middleware before() hooks in sequence
+   ├─  8.  Module execution: Call module.execute(inputs, context)
+   ├─  9.  Output validation: Validate output result against output_schema
+   ├─ 10.  Middleware after: Execute middleware after() hooks in reverse order
+   ├─ 11.  Return result
    │
    └─ (on error: middleware on_error hooks in reverse order)
 ```
@@ -1006,7 +1006,7 @@ Development guide: see [Adapter Development Guide](./docs/guides/adapter-develop
 | Document | Description |
 |------|------|
 | [ACL System](./docs/features/acl-system.md) | Pattern-based Access Control List with first-match-wins evaluation |
-| [Core Executor](./docs/features/core-executor.md) | Core execution engine with 10-step pipeline |
+| [Core Executor](./docs/features/core-executor.md) | Core execution engine with 11-step pipeline |
 | [Decorator & YAML Bindings](./docs/features/decorator-bindings.md) | `@module` decorator and YAML-based module creation |
 | [Middleware System](./docs/features/middleware-system.md) | Composable middleware pipeline with onion execution model |
 | [Observability](./docs/features/observability.md) | Distributed tracing, metrics, and structured logging |
