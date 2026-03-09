@@ -17,6 +17,7 @@
 - [4. Schema Specification](#4-schema-specification-schema-specification)
 - [5. Module Specification](#5-module-specification-module-specification)
 - [6. ACL Specification](#6-acl-specification-acl-specification)
+  - [6.6 System Module Permissions](#66-system-module-permissions)
 - [7. Approval System](#7-approval-system-approval-system)
 - [8. Error Handling Specification](#8-error-handling-specification-error-handling-specification)
 - [9. Configuration Specification](#9-configuration-specification-configuration-specification)
@@ -2840,6 +2841,66 @@ Steps:
 | `callers` or `targets` in rule is empty array | Rule never matches | **MUST** |
 | Conditions present but no context provided | Rule does not match | **MUST** |
 | Module calls itself | Perform ACL check normally | **MUST** |
+
+### 6.6 System Module Permissions
+
+The `system.*` namespace is a **framework-reserved prefix** (see §2.5). All built-in system modules (health, manifest, usage, control) are registered under this prefix. This section defines the permission semantics and defense-in-depth model for system modules.
+
+#### 6.6.1 Registration Restriction
+
+System modules **MUST** only be registered via `register_internal()` (or equivalent privileged API). The standard `register()` method **MUST** reject any `module_id` starting with `system.` due to the reserved word `system` in §2.5.
+
+This guarantees that user-defined modules **cannot** impersonate system modules.
+
+#### 6.6.2 Module Classification by Prefix
+
+Adapters (MCP servers, HTTP gateways, Explorer UIs) **SHOULD** use `module_id` prefix to classify modules:
+
+| Prefix | Classification | Nature |
+|--------|---------------|--------|
+| `system.health.*` | Observability | Read-only, no side effects |
+| `system.usage.*` | Observability | Read-only, no side effects |
+| `system.manifest.*` | Introspection | Read-only, no side effects |
+| `system.control.*` | Administration | Write operations — may reload, disable, or reconfigure modules |
+
+Adapters **SHOULD NOT** invent their own classification mechanisms (such as reserved tags or environment variables) — the `module_id` prefix is the canonical and unforgeable identifier.
+
+#### 6.6.3 Defense-in-Depth Model
+
+System module access is governed by three independent layers. Each layer operates regardless of the others:
+
+```
+Layer 1: Activation (Config)
+  sys_modules.enabled = false (default)
+  → system.* modules are NOT registered
+  → No system module exists in the registry — nothing to call or list
+
+Layer 2: Authorization (ACL)
+  When system modules ARE registered, ACL rules control who can call them.
+  → Recommended default: deny external callers access to system.*
+  → Example:
+      rules:
+        - callers: ["@external"]
+          targets: ["system.*"]
+          effect: deny
+          description: "Block external access to system modules"
+
+Layer 3: Approval (requires_approval annotation)
+  Destructive system operations (e.g., system.control.reload_module)
+  SHOULD set requires_approval = true for human-in-the-loop enforcement.
+```
+
+Adapters and UI layers **SHOULD NOT** introduce additional independent permission switches. The three layers above are sufficient — adding adapter-level switches creates shadow permission systems that can diverge from the actual ACL state.
+
+#### 6.6.4 UI Adapter Guidelines
+
+Explorer-style UIs that display module listings **SHOULD**:
+
+1. **Classify by prefix**: Use `module_id.startswith("system.")` to separate system modules from user modules in the UI.
+2. **Reflect backend state**: If no `system.*` modules appear in the listing, hide management UI elements. If they appear, show them.
+3. **Not duplicate authorization**: The UI should faithfully reflect what the backend exposes. If ACL blocks a call, the Executor returns `ACL_DENIED` — the UI handles this error gracefully, rather than pre-filtering modules with its own logic.
+
+This "backend-driven visibility" approach ensures the UI always matches the actual permission state without maintaining a parallel authorization model.
 
 ---
 
