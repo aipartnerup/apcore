@@ -128,6 +128,78 @@ outgoing_headers = TraceContext.inject(context)
 
 The `traceparent` header follows the W3C format: `{version}-{trace_id}-{parent_id}-{trace_flags}`.
 
+### Error History
+
+`ErrorHistory` is a ring-buffer tracker for recent module errors, providing deduplication and per-module querying. It is automatically created and wired by `register_sys_modules()` when system modules are enabled.
+
+**Architecture:**
+- Uses `collections.deque` with configurable per-module capacity (`max_entries_per_module`, default 50) and total capacity (`max_total_entries`, default 1000).
+- Deduplication by `(code, message)` tuple — repeated errors increment `count` and update `last_occurred` instead of creating new entries.
+- Thread-safe via `threading.Lock`.
+
+**API:**
+
+| Method | Description |
+|--------|-------------|
+| `record(error: ModuleError)` | Record an error instance with deduplication |
+| `get(module_id) → list[ErrorEntry]` | Return entries for a module (newest first) |
+| `get_all() → list[ErrorEntry]` | Return all entries sorted by `last_occurred` |
+
+**ErrorEntry dataclass:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `module_id` | str | Source module |
+| `code` | str | Error code |
+| `message` | str | Error message |
+| `ai_guidance` | str \| None | AI guidance from the error |
+| `count` | int | Number of occurrences (deduplicated) |
+| `first_occurred` | str | ISO timestamp of first occurrence |
+| `last_occurred` | str | ISO timestamp of most recent occurrence |
+
+**ErrorHistoryMiddleware** records `ModuleError` instances into `ErrorHistory` on every `on_error()` call. Generic exceptions (non-`ModuleError`) are ignored. The middleware never recovers from errors (always returns `None`).
+
+### Usage Collector
+
+`UsageCollector` is a thread-safe in-memory tracker for per-module call counting, latency measurement, and hourly trend data. It is automatically created and wired by `register_sys_modules()`.
+
+**Architecture:**
+- Hourly bucketed storage with configurable retention (`retention_hours`, default 168 = 7 days).
+- Trend computation compares current period vs previous period: `stable`, `rising`, `declining`, `new`, `inactive`.
+- Thread-safe via `threading.Lock`.
+
+**API:**
+
+| Method | Description |
+|--------|-------------|
+| `record(module_id, caller_id, latency_ms, success)` | Record a usage event |
+| `get_summary(period="24h") → list[ModuleUsageSummary]` | Aggregated summary for all modules |
+| `get_module(module_id, period="24h") → ModuleUsageDetail` | Detailed usage with caller breakdown and hourly distribution |
+| `get_latencies(module_id) → list[float]` | Raw latency values for p99 computation |
+
+**UsageMiddleware** records usage in `before()` (start timestamp), `after()` (success + latency), and `on_error()` (failure + latency) hooks.
+
+### Platform Notify Middleware
+
+`PlatformNotifyMiddleware` is a threshold-based sensor that emits events when module error rates or latency exceed configured thresholds.
+
+**Configuration:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `error_rate_threshold` | 0.1 (10%) | Error rate that triggers alert |
+| `latency_p99_threshold_ms` | 5000.0 | p99 latency that triggers alert |
+
+**Events emitted:**
+
+| Event | Trigger |
+|-------|---------|
+| `error_threshold_exceeded` | Error rate >= threshold |
+| `latency_threshold_exceeded` | p99 latency >= threshold |
+| `module_health_changed` | Recovery: error rate < threshold × 0.5 |
+
+**Hysteresis:** Once an alert fires for a module, it will not re-fire until the module recovers below `threshold × 0.5`, then crosses the threshold again. This prevents alert storms.
+
 ## Key Files
 
 | File | Lines | Purpose |
@@ -136,6 +208,10 @@ The `traceparent` header follows the W3C format: `{version}-{trace_id}-{parent_i
 | `src/apcore/observability/tracing.py` | 293 | `Span`, `SpanExporter`, `StdoutExporter`, `InMemoryExporter`, `OTLPExporter`, `TracingMiddleware` |
 | `src/apcore/observability/metrics.py` | 195 | `MetricsCollector`, `MetricsMiddleware`, Prometheus export |
 | `src/apcore/observability/context_logger.py` | 170 | `ContextLogger`, `ObsLoggingMiddleware` |
+| `src/apcore/observability/error_history.py` | — | `ErrorHistory`, `ErrorEntry` |
+| `src/apcore/observability/usage.py` | — | `UsageCollector`, `UsageMiddleware`, `ModuleUsageSummary`, `ModuleUsageDetail` |
+| `src/apcore/middleware/error_history.py` | — | `ErrorHistoryMiddleware` |
+| `src/apcore/middleware/platform_notify.py` | — | `PlatformNotifyMiddleware` |
 
 ## Dependencies
 

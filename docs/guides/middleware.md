@@ -369,49 +369,54 @@ class CacheMiddleware(Middleware):
             self.cache[key] = (output, time.time())
 ```
 
-### 5.4 Retry Middleware
+### 5.4 RetryMiddleware (Built-in)
+
+apcore provides a built-in `RetryMiddleware` with configurable backoff strategies. It only retries errors marked `retryable=True`.
 
 ```python
-import time
-from apcore import Middleware, Context
+from apcore import RetryMiddleware, RetryConfig
 
+# Default: 3 retries, exponential backoff, jitter enabled
+executor.use(RetryMiddleware())
 
-class RetryMiddleware(Middleware):
-    """Automatic retry middleware"""
-
-    def __init__(
-        self,
-        max_retries: int = 3,
-        delay_seconds: float = 1.0,
-        exponential_backoff: bool = True
-    ):
-        self.max_retries = max_retries
-        self.delay = delay_seconds
-        self.exponential = exponential_backoff
-        self._retry_counts: dict[str, int] = {}
-
-    def on_error(self, module_id: str, inputs: dict, error: Exception, context: Context) -> dict | None:
-        key = context.trace_id
-        retries = self._retry_counts.get(key, 0)
-
-        if retries < self.max_retries:
-            # Calculate delay
-            delay = self.delay * (2 ** retries) if self.exponential else self.delay
-            time.sleep(delay)
-
-            # Increment retry count
-            self._retry_counts[key] = retries + 1
-
-            # Re-execute (return special marker)
-            context.data["retry_requested"] = True
-            return None  # Continue raising exception, let Executor handle retry
-
-        # Clean up retry count
-        self._retry_counts.pop(key, None)
-        return None  # Exceeded retry limit, continue raising exception
+# Custom configuration
+executor.use(RetryMiddleware(RetryConfig(
+    max_retries=5,
+    strategy="fixed",          # "exponential" (default) or "fixed"
+    base_delay_ms=200,         # Base delay between retries (default: 100)
+    max_delay_ms=10000,        # Cap for exponential growth (default: 5000)
+    jitter=True,               # Add 0.5-1.5x random multiplier (default: True)
+)))
 ```
 
-### 5.5 Rate Limit Middleware
+**`RetryConfig` fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `max_retries` | int | 3 | Maximum retry attempts |
+| `strategy` | str | `"exponential"` | `"exponential"` (base × 2^attempt) or `"fixed"` (constant delay) |
+| `base_delay_ms` | int | 100 | Base delay in milliseconds |
+| `max_delay_ms` | int | 5000 | Maximum delay cap (exponential only) |
+| `jitter` | bool | True | Add random 0.5–1.5x multiplier to prevent thundering herd |
+
+**Retry logic:**
+- Only retries errors where `error.retryable is True` (each error code has a default, see PROTOCOL_SPEC §8.6).
+- Tracks retry count per module in `context.data` using key `_retry_count_{module_id}`.
+- In async pipelines, `on_error` runs via `asyncio.to_thread` so the event loop is not blocked.
+
+### 5.5 ErrorHistoryMiddleware (Built-in)
+
+Records `ModuleError` instances into `ErrorHistory` for health monitoring. Automatically registered by `register_sys_modules()`. See [Observability](../features/observability.md#error-history).
+
+### 5.6 UsageMiddleware (Built-in)
+
+Records call counts and latency into `UsageCollector` for usage analytics. Automatically registered by `register_sys_modules()`. See [Observability](../features/observability.md#usage-collector).
+
+### 5.7 PlatformNotifyMiddleware (Built-in)
+
+Emits events when module error rates or p99 latency exceed configured thresholds. Automatically registered when `sys_modules.events.enabled: true`. See [Event System](../features/event-system.md).
+
+### 5.8 Rate Limit Middleware
 
 ```python
 import time

@@ -21,11 +21,11 @@ Composable middleware pipeline using the onion execution model with before/after
 
 The middleware system follows a classic onion (layered) execution model. The `MiddlewareManager` holds an ordered list of `Middleware` instances and provides three execution methods corresponding to the module call lifecycle:
 
-1. **`execute_before()`** -- Iterates middlewares in registration order. Each middleware's `before()` receives the current inputs and may return a replacement dict. If a middleware raises, a `MiddlewareChainError` is raised with the list of already-executed middlewares attached.
+1. **`execute_before() -> tuple[dict, list[Middleware]]`** -- Iterates middlewares in registration order. Each middleware's `before()` receives the current inputs and may return a replacement dict. Returns both the (possibly modified) inputs and the list of executed middlewares (for error rollback in `execute_on_error`). If a middleware raises, a `MiddlewareChainError` is raised with the list of already-executed middlewares attached.
 
 2. **`execute_after()`** -- Iterates middlewares in reverse registration order. Each middleware's `after()` receives both original inputs and the current output, and may return a replacement output dict.
 
-3. **`execute_on_error()`** -- Iterates the `executed_middlewares` list (from the before phase) in reverse order. The first handler to return a non-None dict becomes the recovery output. If a handler itself raises, the exception is logged and iteration continues.
+3. **`execute_on_error(module_id, inputs, error, context, executed_middlewares)`** -- Iterates the `executed_middlewares` list (from the before phase) in reverse order. The first handler to return a non-None dict becomes the recovery output. If a handler itself raises, the exception is logged and iteration continues.
 
 ### Snapshot Pattern
 
@@ -37,6 +37,7 @@ The `MiddlewareManager` uses a lock-protected snapshot pattern for thread safety
 - **`MiddlewareManager`** -- Manages the ordered list and orchestrates the three execution phases. Uses `threading.Lock` with the snapshot pattern.
 - **`BeforeMiddleware` / `AfterMiddleware`** -- Lightweight adapters wrapping a single callback function as a full `Middleware` subclass. Non-overridden phases remain no-ops.
 - **`LoggingMiddleware`** -- Structured logging middleware that records start time in `context.data["_logging_mw_start"]` during `before()`, computes duration in `after()`, and uses `context.redacted_inputs` to avoid leaking sensitive data. Configurable via `log_inputs`, `log_outputs`, and `log_errors` flags.
+- **`RetryMiddleware`** -- Built-in middleware that retries failed module calls with configurable backoff strategies (exponential or fixed). Only retries errors marked `retryable=True`. Supports `max_retries`, `base_delay_ms`, `max_delay_ms`, and jitter. See [Middleware Guide](../guides/middleware.md#54-retrymiddleware-built-in) for configuration details.
 - **`MiddlewareChainError`** -- Exception subclass carrying `original` (the root cause) and `executed_middlewares` (the list of middlewares whose `before()` was called, for targeted error recovery).
 
 ### Data Flow

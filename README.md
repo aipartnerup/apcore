@@ -996,6 +996,7 @@ Development guide: see [Adapter Development Guide](./docs/guides/adapter-develop
 
 | Document | Description |
 |------|------|
+| [APCore Client](./docs/api/client-api.md) | High-level client API (recommended entry point) |
 | [Module Interface](./docs/api/module-interface.md) | Module interface definition |
 | [Context Object](./docs/api/context-object.md) | Execution context |
 | [Registry API](./docs/api/registry-api.md) | Registry API |
@@ -1013,6 +1014,8 @@ Development guide: see [Adapter Development Guide](./docs/guides/adapter-develop
 | [Registry System](./docs/features/registry-system.md) | Module discovery, registration, and querying |
 | [Schema System](./docs/features/schema-system.md) | Schema loading, validation, `$ref` resolution, and export |
 | [Approval System](./docs/features/approval-system.md) | Runtime enforcement of `requires_approval` via pluggable ApprovalHandler |
+| [Event System](./docs/features/event-system.md) | Event emission, subscription, delivery lifecycle |
+| [System Modules](./docs/features/system-modules.md) | Built-in system.* modules for health, manifest, usage, control |
 
 ### Usage Guides
 

@@ -14,6 +14,7 @@ docs/
 ├── concepts.md                        ← Design philosophy & core concepts
 ├── architecture.md                    ← Framework technical architecture
 ├── api/                               ← API reference (authoritative definitions)
+│   ├── client-api.md                  ← APCore unified client
 │   ├── module-interface.md            ← Module base class interface
 │   ├── context-object.md              ← Context execution context
 │   ├── registry-api.md                ← Registry center
@@ -25,6 +26,8 @@ docs/
 │   ├── decorator-bindings.md          ← Decorator and YAML Bindings
 │   ├── middleware-system.md           ← Middleware System
 │   ├── observability.md               ← Observability System
+│   ├── event-system.md                ← Event System
+│   ├── system-modules.md              ← System Modules (AI Introspection)
 │   ├── registry-system.md             ← Module Registry and Discovery System
 │   └── schema-system.md              ← Schema System
 ├── guides/                            ← Usage guides (7 articles)
@@ -58,6 +61,7 @@ Core interface definitions for the module system, including complete API documen
 
 | API Document | Description |
 |--------------|-------------|
+| [APCore Client](./api/client-api.md) | Unified client API (recommended entry point) |
 | [Module Interface](./api/module-interface.md) | Complete definition of the Module base class |
 | [Context Object](./api/context-object.md) | Complete definition of the execution context |
 | [Registry API](./api/registry-api.md) | Module registry center API |
@@ -75,6 +79,8 @@ Implementation-ready feature specifications for SDK developers. Each document de
 | [Decorator & YAML Bindings](./features/decorator-bindings.md) | `@module` decorator and YAML-based declarative module creation |
 | [Middleware System](./features/middleware-system.md) | Composable middleware pipeline with onion execution model |
 | [Observability](./features/observability.md) | Distributed tracing, metrics collection, and structured logging |
+| [Event System](./features/event-system.md) | Global event bus, subscribers, and threshold alerting |
+| [System Modules](./features/system-modules.md) | Built-in `system.*` modules for AI bidirectional introspection |
 | [Registry System](./features/registry-system.md) | Module discovery, registration, and querying with 8-step pipeline |
 | [Schema System](./features/schema-system.md) | Schema loading, validation, `$ref` resolution, and LLM export |
 
@@ -121,6 +127,7 @@ Quickly find authoritative definitions for concepts:
 
 | Concept | Authoritative Definition | Quick Reference |
 |---------|--------------------------|-----------------|
+| APCore Client | [client-api.md](./api/client-api.md) | [Getting Started](./getting-started.md) |
 | Module | [module-interface.md](./api/module-interface.md) | [README](../README.md#module-development) |
 | ModuleAnnotations | [module-interface.md#annotations](./api/module-interface.md#34-annotations) | [README](../README.md#schema-system) |
 | Context | [context-object.md](./api/context-object.md) | [README](../README.md#context-object) |

@@ -16,6 +16,7 @@ class Registry:
 
     def __init__(
         self,
+        config: "Config | None" = None,
         extensions_dir: str | None = "./extensions",
         extensions_dirs: list[str | dict] | None = None,
         id_map_path: str | None = None
@@ -24,6 +25,8 @@ class Registry:
         Initialize Registry
 
         Args:
+            config: Framework configuration (optional). When provided,
+                registry settings are read from config.registry.
             extensions_dir: Single root directory path (backward compatible). Set to None for no directory binding (manual registration only).
             extensions_dirs: Multiple root directory list (mutually exclusive with extensions_dir).
                 Each element can be a path string (namespace auto-derived from directory name) or
@@ -44,6 +47,15 @@ class Registry:
 
     def unregister(self, module_id: str) -> bool:
         """Unregister a module"""
+        ...
+
+    def register_internal(self, module_id: str, module: Module) -> None:
+        """
+        Register a module bypassing reserved word checks
+
+        Used for system module registration (system.* namespace).
+        Normal user code should use register() instead.
+        """
         ...
 
     # ============ Query ============
@@ -72,22 +84,21 @@ class Registry:
         """Iterate over all modules"""
         ...
 
-    # ============ Schema Query and Export ============
+    # ============ Schema Query and Export (OPTIONAL) ============
     #
-    # Note: In implementations, these schema methods MAY be provided as
-    # independent helper functions rather than Registry methods, e.g.:
+    # These are convenience facades. Implementations may delegate to
+    # SchemaLoader/SchemaExporter instead of providing these directly
+    # on the Registry. They are marked OPTIONAL — implementations may
+    # provide them as independent helper functions, e.g.:
     #   get_schema(registry, module_id)
     #   export_schema(registry, module_id, format=...)
-    # The Registry interface below defines the recommended convenience
-    # interface. Implementations may choose standalone function form
-    # if it better fits their architecture.
 
     def get_schema(self, module_id: str) -> dict | None:
-        """Get module Schema (structured dict, for in-program processing)"""
+        """OPTIONAL. Get module Schema (structured dict, for in-program processing)"""
         ...
 
     def get_all_schemas(self) -> dict[str, dict]:
-        """Get all module Schemas (structured dict)"""
+        """OPTIONAL. Get all module Schemas (structured dict)"""
         ...
 
     def export_schema(
@@ -98,7 +109,7 @@ class Registry:
         compact: bool = False,
         profile: str | None = None
     ) -> str:
-        """Export module Schema (serialized string, for transmission/storage)"""
+        """OPTIONAL. Export module Schema (serialized string, for transmission/storage)"""
         ...
 
     def export_all_schemas(
@@ -108,7 +119,85 @@ class Registry:
         compact: bool = False,
         profile: str | None = None
     ) -> str:
-        """Export all module Schemas (serialized string)"""
+        """OPTIONAL. Export all module Schemas (serialized string)"""
+        ...
+
+    # ============ Module Control ============
+
+    def disable(self, module_id: str) -> None:
+        """
+        Disable a module without unloading it
+
+        Disabled modules remain registered but calls raise ModuleDisabledError.
+        Thread-safe via ToggleState.
+
+        Optional. Implementations may handle module toggling at the APCore
+        client level instead. See client-api.md disable()/enable().
+
+        Low-level API that bypasses approval and events. For production use
+        with full audit trail, use APCore.disable() which routes through
+        system.control.toggle_feature.
+        """
+        ...
+
+    def enable(self, module_id: str) -> None:
+        """
+        Re-enable a previously disabled module
+
+        Optional. Implementations may handle module toggling at the APCore
+        client level instead. See client-api.md disable()/enable().
+        """
+        ...
+
+    # ============ Safe Hot-Reload ============
+
+    def safe_unregister(self, module_id: str, timeout_ms: int = 5000) -> bool:
+        """
+        Safely unregister with cooperative drain (Algorithm A21)
+
+        Waits for in-flight executions to complete (up to timeout_ms)
+        before removing the module. Returns True if successful.
+        """
+        ...
+
+    def acquire(self, module_id: str) -> "ContextManager[Module]":
+        """
+        Context manager tracking in-flight executions
+
+        Used by Executor to ensure safe_unregister() can wait for
+        completion before removing a module.
+        """
+        ...
+
+    def is_draining(self, module_id: str) -> bool:
+        """Check if module is marked for unload"""
+        ...
+
+    # ============ Introspection ============
+
+    def describe(self, module_id: str) -> str:
+        """
+        Return markdown-formatted human-readable module description
+
+        Useful for AI/LLM tool discovery. Includes description,
+        documentation, input/output schemas, and annotations.
+        """
+        ...
+
+    def negotiate_version(
+        self,
+        module_id: str,
+        version_hint: str,
+    ) -> "Module":
+        """
+        Version negotiation for SDK/module compatibility (Algorithm A14)
+
+        Resolves the best matching module version given a constraint string.
+        Raises VersionIncompatibleError if no compatible version found.
+
+        Optional. Implementations may provide this as a standalone utility
+        function instead.
+        """
         ...
 
     # ============ Event Callbacks ============
@@ -744,11 +833,11 @@ registry = Registry(extensions_dir="./extensions")
 registry.discover()
 
 # Enable file watching (development mode)
-registry.watch(
-    on_change=lambda module_id: print(f"Module changed: {module_id}"),
-    on_add=lambda module_id: print(f"Module added: {module_id}"),
-    on_remove=lambda module_id: print(f"Module removed: {module_id}")
-)
+# Change callbacks are registered separately via registry.on(event, callback)
+registry.on("change", lambda module_id: print(f"Module changed: {module_id}"))
+registry.on("add", lambda module_id: print(f"Module added: {module_id}"))
+registry.on("remove", lambda module_id: print(f"Module removed: {module_id}"))
+registry.watch()
 
 # Stop watching
 registry.unwatch()

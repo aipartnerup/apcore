@@ -210,9 +210,83 @@ For full control, you can manage Registry and Executor separately:
     const result = await executor.call('math.add', { a: 10, b: 5 });
     ```
 
+## 8. Global Entry Points
+
+All `APCore` client methods are also available as module-level functions via a default client instance:
+
+=== "Python"
+
+    ```python
+    import apcore
+
+    # Registration
+    @apcore.module(id="math.add", description="Add two numbers")
+    def add(a: int, b: int) -> dict:
+        return {"sum": a + b}
+
+    apcore.register("math.add", my_module)   # Direct registration
+    apcore.discover()                         # Auto-discover from extensions dir
+
+    # Execution
+    result = apcore.call("math.add", {"a": 1, "b": 2})
+    preflight = apcore.validate("math.add", {"a": 1})
+    # apcore.stream(), apcore.call_async() also available
+
+    # Discovery & Inspection
+    modules = apcore.list_modules(prefix="math.")
+    desc = apcore.describe("math.add")
+
+    # Middleware
+    apcore.use(LoggingMiddleware())
+    apcore.use_before(lambda mid, inp, ctx: print(f"→ {mid}"))
+    apcore.use_after(lambda mid, inp, out, ctx: print(f"← {mid}"))
+    apcore.remove(mw)
+
+    # Events & Control (requires config with sys_modules enabled)
+    sub = apcore.on("module_health_changed", handler)
+    apcore.off(sub)
+    apcore.disable("some.module", reason="maintenance")
+    apcore.enable("some.module", reason="done")
+    ```
+
+See [APCore Client API](api/client-api.md) for the full reference.
+
+## 9. System Modules
+
+When configured with `sys_modules.enabled: true`, APCore auto-registers built-in `system.*` modules for health monitoring, usage analytics, manifest inspection, and runtime control.
+
+=== "Python"
+
+    ```python
+    from apcore import APCore
+    from apcore.config import Config
+
+    config = Config.load("apcore.yaml")
+    client = APCore(config=config)
+
+    # Health overview
+    health = client.call("system.health.summary", {})
+    print(health["summary"])  # {"total_modules": 12, "healthy": 10, ...}
+
+    # Usage statistics
+    usage = client.call("system.usage.summary", {"period": "24h"})
+
+    # Module manifest
+    manifest = client.call("system.manifest.full", {"prefix": "math."})
+
+    # Runtime control (requires approval handler + events enabled)
+    client.disable("risky.module", reason="investigating issue")
+    client.enable("risky.module", reason="issue resolved")
+    ```
+
+See [System Modules](features/system-modules.md) for the full module reference.
+
 ## Next Steps
 
+- [APCore Client API](api/client-api.md) - Complete unified client reference.
 - [Creating Modules Guide](guides/creating-modules.md) - Deep dive into module definition.
 - [Schema Definition Guide](guides/schema-definition.md) - Learn about advanced validation.
 - [ACL Configuration](guides/acl-configuration.md) - Secure your modules.
+- [Event System](features/event-system.md) - Framework event bus and subscribers.
+- [System Modules](features/system-modules.md) - Built-in health, usage, and control modules.
 - [apcore-mcp](https://github.com/aipartnerup/apcore-mcp) - Expose these modules as an MCP Server.

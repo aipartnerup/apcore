@@ -37,7 +37,9 @@ The executor processes every module call through the following pipeline:
 
 7. **Middleware Before Chain** -- All registered "before" middleware functions are executed in order. Each middleware receives the context and validated input, and may modify or enrich them before the module runs.
 
-8. **Module Execution with Timeout** -- The module's handler is invoked. Timeout enforcement is implemented via daemon threads for synchronous handlers and an async bridge for asynchronous handlers. If the handler exceeds the configured timeout, the call is cancelled and a timeout error is returned.
+8. **Module Execution with Timeout (Dual-Timeout Model)** -- The module's handler is invoked with dual-timeout enforcement: both a per-module timeout (`resources.timeout`, default 30s) and a global deadline (`executor.global_timeout`, default 60s). The shorter of the two is applied, preventing nested call chains from exceeding the global budget. The global deadline is set on the root call and propagated to child contexts via `Context._global_deadline`.
+
+   **Cooperative cancellation:** On timeout, the executor sends `CancelToken.cancel()` and waits a 5-second grace period before raising `ModuleTimeoutError`. Modules that check `cancel_token` in their execution loop can clean up gracefully.
 
 9. **Output Validation** -- The module's return value is validated against its output schema. Invalid output triggers an error rather than allowing malformed data to propagate.
 
@@ -63,9 +65,17 @@ The executor exposes both `call()` (sync) and `call_async()` (async) entry point
 
 The `redact_sensitive` utility walks the input/output dictionaries and replaces values of fields marked `x-sensitive: true` in the schema with a placeholder string. This ensures sensitive data never appears in logs or error reports.
 
-### Validation
+### Error Propagation (Algorithm A11)
 
-The `validate()` method on the executor provides a standalone validation path that runs input through the Pydantic model without executing the module, useful for pre-flight checks.
+All execution paths (sync, async, stream) wrap exceptions via `propagate_error()`, ensuring middleware always receives `ModuleError` instances with trace context attached. This guarantees consistent error handling regardless of the execution mode.
+
+### Deep Merge for Streaming
+
+Streaming chunk accumulation uses recursive deep merge (depth-capped at 32) instead of shallow merge. This correctly handles nested response structures where chunks contribute to different levels of the output tree.
+
+### Validation (Preflight)
+
+The `validate()` method provides a non-destructive preflight check that runs Steps 1–6 of the pipeline (module ID format, module lookup, call chain safety, ACL, approval detection, schema validation) without executing module code or middleware. It returns a `PreflightResult` with per-check results and a `requires_approval` flag. The result is duck-type compatible with the legacy `ValidationResult` — `.valid` and `.errors` properties work identically.
 
 ## Key Files
 
@@ -83,7 +93,7 @@ The `validate()` method on the executor provides a standalone validation path th
 
 ### Internal
 - **Registry** -- Module lookup (step 3) depends on the Registry system to resolve module names to loaded module instances.
-- **Schema System** -- Input and output validation (steps 5 and 8) depend on the Schema System for Pydantic model generation from YAML schemas.
+- **Schema System** -- Input and output validation (steps 6 and 9) depend on the Schema System for Pydantic model generation from YAML schemas.
 
 ## Testing Strategy
 

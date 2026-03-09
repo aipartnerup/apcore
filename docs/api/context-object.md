@@ -670,16 +670,27 @@ class Context:
         cls,
         executor: Any,
         identity: Identity | None = None,
-        data: dict[str, Any] | None = None
+        data: dict[str, Any] | None = None,
+        trace_parent: "TraceParent | None" = None,
+        services: "T | None" = None
     ) -> "Context":
-        """Create new top-level Context"""
+        """Create new top-level Context
+
+        Args:
+            executor: Executor reference for inter-module calls
+            identity: Caller identity for ACL enforcement
+            data: Initial shared pipeline state
+            trace_parent: W3C Trace Context parent for distributed tracing
+            services: Dependency injection container for sharing services across the call chain
+        """
         return cls(
-            trace_id=str(uuid.uuid4()),
+            trace_id=trace_parent.trace_id if trace_parent else str(uuid.uuid4()),
             caller_id=None,
             call_chain=[],
             executor=executor,
             identity=identity,
-            data=data or {}
+            data=data or {},
+            services=services
         )
 
     def child(self, target_module_id: str) -> "Context":

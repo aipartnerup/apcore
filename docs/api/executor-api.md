@@ -19,7 +19,8 @@ class Executor:
         registry: Registry,
         middlewares: list[Middleware] | None = None,
         acl: "ACL | None" = None,
-        approval_handler: "ApprovalHandler | None" = None
+        approval_handler: "ApprovalHandler | None" = None,
+        config: "Config | None" = None
     ) -> None:
         """
         Initialize Executor
@@ -29,6 +30,29 @@ class Executor:
             middlewares: Middleware list (executed in order)
             acl: Access Control List
             approval_handler: Approval handler for modules with requires_approval=true
+            config: Framework configuration (optional). When provided,
+                executor settings (timeouts, max call depth, etc.) are
+                read from config.
+        """
+        ...
+
+    # ============ Factory Methods ============
+
+    @classmethod
+    def from_registry(
+        cls,
+        registry: Registry,
+        middlewares: list[Middleware] | None = None,
+        acl: "ACL | None" = None,
+        config: "Config | None" = None,
+        approval_handler: "ApprovalHandler | None" = None,
+    ) -> "Executor":
+        """
+        Create an Executor from a Registry instance
+
+        Convenience factory that constructs a fully configured Executor.
+        Equivalent to calling the constructor directly but provides a
+        clearer intent when composing from existing components.
         """
         ...
 
@@ -38,7 +62,8 @@ class Executor:
         self,
         module_id: str,
         inputs: dict[str, Any] | None = None,
-        context: Context | None = None
+        context: Context | None = None,
+        version_hint: str | None = None,
     ) -> dict[str, Any]:
         """
         Synchronously call module
@@ -47,12 +72,15 @@ class Executor:
             module_id: Module ID
             inputs: Input parameters
             context: Call context (optional, auto-created)
+            version_hint: Version constraint for module resolution (e.g., ">=1.0.0")
 
         Returns:
             Module output
 
         Raises:
             ModuleNotFoundError: Module does not exist
+            ModuleDisabledError: Module is disabled
+            ModuleTimeoutError: Module execution timed out
             ValidationError: Input/output validation failed
             ACLDeniedError: Insufficient permissions
             ApprovalDeniedError: Approval explicitly rejected
@@ -69,7 +97,8 @@ class Executor:
         self,
         module_id: str,
         inputs: dict[str, Any] | None = None,
-        context: Context | None = None
+        context: Context | None = None,
+        version_hint: str | None = None,
     ) -> dict[str, Any]:
         """
         Asynchronously call module
@@ -84,7 +113,8 @@ class Executor:
         self,
         module_id: str,
         inputs: dict[str, Any] | None = None,
-        context: Context | None = None
+        context: Context | None = None,
+        version_hint: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """
         Stream module output chunk by chunk
@@ -92,15 +122,31 @@ class Executor:
         Yields partial results as they become available.
         Calls the module's stream() method if defined,
         otherwise falls back to standard execute().
+        Streaming chunks are accumulated via recursive deep merge (depth cap 32).
         """
         ...
 
     def validate(
         self,
         module_id: str,
-        inputs: dict[str, Any]
-    ) -> "ValidationResult":
-        """Only validate inputs, don't execute"""
+        inputs: dict[str, Any] | None = None,
+        context: Context | None = None,
+    ) -> "PreflightResult":
+        """
+        Non-destructive preflight check (Steps 1-6 only)
+
+        Runs 6 checks without executing module code or middleware:
+        1. Module ID format validation
+        2. Module lookup
+        3. Call chain safety (if context provided)
+        4. ACL check
+        5. Approval detection (reports requires_approval flag)
+        6. Input schema validation
+
+        Returns:
+            PreflightResult with per-check results, requires_approval flag,
+            and duck-type compatible .valid and .errors properties
+        """
         ...
 
     # ============ Middleware Management ============
@@ -119,6 +165,16 @@ class Executor:
 
     def remove(self, middleware: Middleware) -> bool:
         """Remove middleware"""
+        ...
+
+    # ============ Configuration ============
+
+    def set_acl(self, acl: "ACL") -> None:
+        """Set or replace the Access Control List after construction"""
+        ...
+
+    def set_approval_handler(self, handler: "ApprovalHandler") -> None:
+        """Set or replace the approval handler after construction"""
         ...
 
     # ============ Properties ============
@@ -155,7 +211,7 @@ executor = Executor(registry)
 
 ```python
 from apcore import Registry, Executor
-from apcore.middleware import LoggingMiddleware, MetricsMiddleware
+from apcore import LoggingMiddleware, MetricsMiddleware
 
 executor = Executor(
     registry=registry,
@@ -302,20 +358,31 @@ except ValidationError as e:
     # ]
 ```
 
-### 4.2 Pre-validation
+### 4.2 Pre-validation (Preflight)
 
 ```python
-# Only validate, don't execute
-validation = executor.validate(
+# Non-destructive preflight check (Steps 1-6, no execution)
+preflight = executor.validate(
     module_id="executor.email.send_email",
     inputs={"to": "user@example.com", "subject": "Hi"}
 )
 
-if validation.valid:
-    print("Inputs are valid")
+if preflight.valid:
+    print("All 6 checks passed")
 else:
-    print(f"Validation errors: {validation.errors}")
+    print(f"Errors: {preflight.errors}")
+
+# Inspect individual checks
+for check in preflight.checks:
+    status = "PASS" if check.passed else f"FAIL: {check.error}"
+    print(f"  {check.check}: {status}")
+
+# Check if module requires approval
+if preflight.requires_approval:
+    print("This module requires approval before execution")
 ```
+
+`PreflightResult` runs 6 checks: module ID format, module lookup, call chain safety, ACL, approval detection, and schema validation. It is duck-type compatible with the legacy `ValidationResult` — `.valid` and `.errors` work identically.
 
 ---
 
@@ -326,6 +393,8 @@ else:
 ```python
 from apcore import (
     ModuleNotFoundError,
+    ModuleDisabledError,
+    ModuleTimeoutError,
     ValidationError,
     ACLDeniedError,
     ApprovalDeniedError,
@@ -334,6 +403,9 @@ from apcore import (
     CallDepthExceededError,
     CircularCallError,
     CallFrequencyExceededError,
+    ReloadFailedError,
+    FeatureNotImplementedError,
+    DependencyNotFoundError,
     ModuleError
 )
 
@@ -345,6 +417,14 @@ try:
 except ModuleNotFoundError as e:
     # Module does not exist
     print(f"Module not found: {e.module_id}")
+
+except ModuleDisabledError as e:
+    # Module is disabled via system.control.toggle_feature
+    print(f"Module disabled: {e.module_id}")
+
+except ModuleTimeoutError as e:
+    # Module execution timed out (per-module or global deadline)
+    print(f"Timeout: {e.module_id}")
 
 except ValidationError as e:
     # Input/output validation failed
@@ -569,7 +649,7 @@ result = context.executor.call(
   └──────────┘
 ```
 
-### 6.4 Timeout Specification
+### 6.4 Timeout Specification (Dual-Timeout Model)
 
 | Config | Default | Description |
 |------|--------|------|
@@ -577,9 +657,23 @@ result = context.executor.call(
 | Global timeout | 60000ms | Total time including middleware and validation |
 | ACL check timeout | 1000ms | Max time for ACL rule evaluation |
 
+The executor enforces a **dual-timeout model**: both a per-module timeout and a global deadline are tracked. The shorter of the two is applied, preventing nested call chains from exceeding the global budget. The global deadline is set on the root call and propagated to child contexts via `Context._global_deadline`.
+
 - After timeout **MUST** throw `MODULE_TIMEOUT` error
 - Timeout counting **MUST** start from the first `before()` middleware
 - Middleware execution time **SHOULD** count toward total timeout
+
+**Cooperative cancellation:** On module timeout, the executor sends `CancelToken.cancel()` and waits a 5-second grace period before raising `ModuleTimeoutError`. Modules that check `cancel_token` in their execution loop can clean up gracefully:
+
+```python
+@client.module(id="long.task", description="Long-running task")
+async def long_task(inputs: dict, context: Context) -> dict:
+    for item in items:
+        if context.cancel_token.is_cancelled:
+            return {"partial": True, "processed": count}
+        await process(item)
+    return {"partial": False, "processed": len(items)}
+```
 
 ### 6.5 Concurrent Execution Semantics
 
@@ -615,7 +709,7 @@ Implementations **MUST** handle Executor edge cases per the following table:
 ### 7.1 Adding Middleware
 
 ```python
-from apcore.middleware import LoggingMiddleware, MetricsMiddleware
+from apcore import LoggingMiddleware, MetricsMiddleware
 
 # Method 1: Add during initialization (Class-based)
 executor = Executor(
@@ -734,7 +828,7 @@ result = executor.call(
 ### 9.3 Logging
 
 ```python
-from apcore.middleware import LoggingMiddleware
+from apcore import LoggingMiddleware
 import logging
 
 # Configure logging
@@ -765,7 +859,7 @@ Log output example:
 
 ```python
 from apcore import Registry, Executor, Context, ACL
-from apcore.middleware import LoggingMiddleware, MetricsMiddleware
+from apcore import LoggingMiddleware, MetricsMiddleware
 
 # 1. Create Registry and discover modules
 registry = Registry(extensions_dir="./extensions")

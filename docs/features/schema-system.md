@@ -29,6 +29,33 @@ The `SchemaLoader` is the main interface for loading schemas. It reads YAML sche
 
 The loader maintains an internal cache keyed by schema path and strategy, so repeated loads of the same schema return the cached result without re-parsing.
 
+These strategies are defined as the `SchemaStrategy` enum:
+
+```python
+from apcore import SchemaStrategy
+
+class SchemaStrategy(str, Enum):
+    YAML_FIRST = "yaml_first"
+    NATIVE_FIRST = "native_first"
+    YAML_ONLY = "yaml_only"
+```
+
+#### ExportProfile Enum
+
+The `ExportProfile` enum specifies which export format to use:
+
+```python
+from apcore import ExportProfile
+
+class ExportProfile(str, Enum):
+    MCP = "mcp"
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    GENERIC = "generic"
+```
+
+Pass an `ExportProfile` value to `SchemaExporter.export()` or `Registry.export_schema(profile=...)` to control the output format.
+
 #### RefResolver
 
 The `RefResolver` handles `$ref` resolution within JSON Schema documents. It supports:
@@ -102,7 +129,7 @@ The `strict` module provides a strict validation mode that rejects any fields no
 - `pyyaml>=6.0` -- YAML schema file parsing.
 
 ### Internal
-- The **Executor** depends on the Schema System for input/output validation (pipeline steps 5 and 8).
+- The **Executor** depends on the Schema System for input/output validation (pipeline steps 6 and 9).
 - The **Registry** uses the Schema System to load module schemas during discovery and to generate `ModuleDescriptor` objects.
 
 ## Testing Strategy
