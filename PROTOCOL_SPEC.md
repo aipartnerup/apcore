@@ -2,10 +2,10 @@
 
 > **Canonical Specification** - This document is the authoritative specification for the apcore protocol
 
-> Version: 1.4.0-draft
+> Version: 1.5.0-draft
 > Status: Draft Specification (RFC 2119 Conformant)
 > Stability: Specification content is stable, pending reference implementation verification
-> Last Updated: 2026-03-06
+> Last Updated: 2026-03-10
 
 ---
 
@@ -713,6 +713,20 @@ error_schema:
 - Strict mode export (§4.16) strips all `x-*` fields, always using `description`
 
 **Anti-pattern:** Don't add `x-llm-description` to every field. For most fields, `description` is sufficient for both humans and AI, use `x-llm-description` only when there's a clear difference in needs.
+
+#### `x-constraints` Usage Guidance
+
+`x-constraints` is for **business rules that JSON Schema keywords cannot express**. Do not use it to duplicate what JSON Schema already provides natively:
+
+| Constraint Type | Correct Approach | Incorrect Approach |
+|------|------|------|
+| Number range | `"minimum": 0, "maximum": 100` | `"x-constraints": "Value must be 0-100"` |
+| String pattern | `"pattern": "^[A-Z]{3}$"` | `"x-constraints": "Must be 3 uppercase letters"` |
+| Fixed options | `"enum": ["a", "b", "c"]` | `"x-constraints": "One of a, b, or c"` |
+| Cross-field rule | `"x-constraints": "end_date must be after start_date"` | ✅ Correct use |
+| Domain rule | `"x-constraints": "User must have verified email"` | ✅ Correct use |
+
+When a constraint can be expressed as a JSON Schema keyword (`minimum`, `maximum`, `pattern`, `enum`, `minLength`, `maxLength`, `multipleOf`), always prefer the keyword. `x-constraints` is the **last resort** for constraints that are inherently natural-language.
 
 ### 4.4 Module Behavior Annotations (Annotations)
 
@@ -1898,6 +1912,12 @@ module_interface:
       description: "Return module description (for LLM)"
       input: "None"
       output: "{ description: string, input_schema: object, output_schema: object, annotations: object, examples: array }"
+
+    - name: "preflight"
+      description: "Domain-specific pre-execution warnings (called by Executor.validate() Check 7)"
+      input: "(inputs: dict, context: Context)"
+      output: "list[str] — warning messages, or empty list if no warnings"
+      note: "Advisory only — returning warnings does NOT block execution. If preflight() raises, the exception is caught and reported as a warning."
 
   # Lifecycle hooks
   lifecycle_hooks:
@@ -3244,6 +3264,19 @@ error_codes:
   MODULE_TIMEOUT:
     description: "Module execution timeout"
     http_status: 504
+  MODULE_DISABLED:
+    description: "Module is disabled via system.control.toggle_feature"
+    http_status: 403
+
+  # Execution-related (EXECUTION_*)
+  EXECUTION_CANCELLED:
+    description: "Module execution cancelled via CancelToken"
+    http_status: 499
+
+  # Reload-related (RELOAD_*)
+  RELOAD_FAILED:
+    description: "Module hot-reload failed"
+    http_status: 500
 
   # Schema-related (SCHEMA_*)
   SCHEMA_NOT_FOUND:
@@ -3496,7 +3529,10 @@ Implementations **must not** default retry failed module invocations. Retry beha
 | `APPROVAL_DENIED` | **No** | Explicit denial, retry won't change decision |
 | `APPROVAL_PENDING` | **No** | Async approval in progress, use polling instead |
 | `MODULE_NOT_FOUND` | **No** | Module non-existence won't change with retry |
+| `MODULE_DISABLED` | **No** | Module explicitly disabled, needs re-enabling |
 | `MODULE_LOAD_ERROR` | **No** | Load errors typically need code fixes |
+| `EXECUTION_CANCELLED` | **Yes** | Cancellation may be temporary, retry with new CancelToken |
+| `RELOAD_FAILED` | **Yes** | Reload may succeed after transient issue resolves |
 | `SCHEMA_VALIDATION_ERROR` | **No** | Input error won't change with retry |
 | `SCHEMA_NOT_FOUND` | **No** | Schema reference missing, needs config fix |
 | `SCHEMA_PARSE_ERROR` | **No** | Schema syntax error, needs manual fix |
@@ -3520,7 +3556,7 @@ Implementations **must not** default retry failed module invocations. Retry beha
 
 Implementations **should** use this table as the default `retryable` value for each error subclass. Callers may override the default on a per-instance basis.
 
-> **Note:** The following error codes are forward-declared for future features and do not yet have exception classes or retryability defaults: `GENERAL_NOT_IMPLEMENTED`, `DEPENDENCY_NOT_FOUND`. Implementations **should** assign retryability defaults when the corresponding exception classes are introduced.
+> **Note:** `GENERAL_NOT_IMPLEMENTED` and `DEPENDENCY_NOT_FOUND` are included in the hierarchy above. Both are non-retryable by default.
 
 Retry middleware (if implemented) **should**:
 - Only retry errors marked as retryable
@@ -3540,6 +3576,9 @@ ModuleError (base error for all framework errors)
 ├── ModuleLoadError                # MODULE_LOAD_ERROR — Module load failed
 ├── ModuleExecuteError             # MODULE_EXECUTE_ERROR — Module execution error
 ├── ModuleTimeoutError             # MODULE_TIMEOUT — Module execution timeout
+├── ModuleDisabledError            # MODULE_DISABLED — Module is disabled
+├── ExecutionCancelledError        # EXECUTION_CANCELLED — Execution cancelled via CancelToken
+├── ReloadFailedError              # RELOAD_FAILED — Module hot-reload failed
 ├── SchemaNotFoundError            # SCHEMA_NOT_FOUND — Schema doesn't exist
 ├── SchemaValidationError          # SCHEMA_VALIDATION_ERROR — Schema validation failed
 ├── SchemaParseError               # SCHEMA_PARSE_ERROR — Schema parse error
@@ -3815,7 +3854,28 @@ metrics:
     labels: [module_id, error_code]
 ```
 
-### 10.4 Trace ID Format
+### 10.4 Usage Tracking
+
+Implementations **should** provide a `UsageCollector` that tracks per-module call statistics for the `system.usage.*` system modules:
+
+```yaml
+usage:
+  storage: "in-memory"              # In-memory bucketed storage
+  bucket_duration: "1h"             # Hourly buckets for trend data
+  per_module:
+    - call_count: counter           # Total calls
+    - error_count: counter          # Total errors
+    - latency_ms: histogram         # Call duration histogram
+    - last_called_at: timestamp     # Last call time
+  aggregate:
+    - total_calls: counter
+    - total_errors: counter
+    - avg_latency_ms: gauge
+```
+
+A `UsageMiddleware` **should** automatically record call data into the `UsageCollector` during Step 10 (Middleware After). The collected data is consumed by `system.usage.summary` and `system.usage.module` system modules.
+
+### 10.5 Trace ID Format
 
 trace_id **must** use UUID v4 format. In distributed scenarios, **recommended** to be compatible with W3C Trace Context standard.
 
@@ -4679,7 +4739,7 @@ class CounterModule:
 
 - `context.data` **must** be the same dict/Map object across entire call chain (reference sharing)
 - Parent module modifications to `context.data` visible to child modules, vice versa
-- When `derive()` creates new Context, `data` field **must** copy reference (not deep copy)
+- When `child()` creates new Context, `data` field **must** copy reference (not deep copy)
 
 **Isolation (MUST)**:
 
@@ -4699,7 +4759,7 @@ executor.call("module_b", {}, context2)  # context2.data independent
 # Sharing within call chain
 # module_a.execute():
 context.data["key"] = "value"  # Write
-sub_context = context.derive("module_c")
+sub_context = context.child("module_c")
 executor.call("module_c", {}, sub_context)
 
 # module_c.execute():
@@ -4882,7 +4942,7 @@ class DatabaseModule:
 ### 12.8 Executor.validate() Cross-Language Implementation Guide
 
 The `validate()` preflight method (§12.2, SHOULD level) runs Steps 1–6 of the Executor pipeline
-without executing module code or middleware. This section provides language-specific guidance for
+(plus optional module-level preflight Check 7) without executing module code or middleware. This section provides language-specific guidance for
 SDK implementers.
 
 #### 12.8.1 Design Principles
@@ -4920,14 +4980,23 @@ Each check in validate() calls the same helper functions used by the `call()` pi
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `check` | string | Check name (e.g., `"module_id_format"`, `"acl"`, `"schema"`) |
+| `check` | string | Check name (e.g., `"module_id_format"`, `"acl"`, `"schema"`, `"module_preflight"`) |
 | `passed` | boolean | Whether the check passed |
 | `error` | error object or null | Error details when `passed` is `false` |
+| `warnings` | list of strings | Non-fatal advisory messages (default: empty list) |
 
 #### 12.8.5 Schema Validation
 
 validate() Check 6 (schema) reuses the same JSON Schema validation that `call()` Step 6 already performs.
 No additional schema library is required beyond what the SDK already uses.
+
+#### 12.8.5.1 Module-Level Preflight (Check 7)
+
+After schema validation, validate() **MAY** invoke the module's optional `preflight(inputs, context)` method (§5.6). This check is advisory:
+
+- If `preflight()` returns a non-empty list of strings, they are stored as `warnings` on a `module_preflight` check result with `passed: true`.
+- If `preflight()` returns an empty list or is not defined, no `module_preflight` check is added.
+- If `preflight()` raises an exception, the exception is caught and reported as a warning (not a failure).
 
 #### 12.8.6 Naming Convention
 

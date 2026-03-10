@@ -992,6 +992,8 @@ Before publishing modules for AI calling, it's recommended to check against the 
 - [ ] Provide x-llm-description when enum has more than 5 values
 - [ ] Complex modules (oneOf/anyOf, 5+ required fields) provide examples
 - [ ] Sensitive fields marked with x-sensitive
+- [ ] Numeric fields declare `minimum`/`maximum` and `default` where applicable (Pydantic: `Field(ge=, le=)`)
+- [ ] String fields with fixed options use `enum` or `Literal[...]` instead of free-form text
 
 ---
 

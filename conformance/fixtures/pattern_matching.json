@@ -1,0 +1,77 @@
+{
+  "description": "ACL pattern matching (Algorithm A09)",
+  "test_cases": [
+    {
+      "id": "exact_match",
+      "pattern": "auth.login",
+      "value": "auth.login",
+      "expected": true
+    },
+    {
+      "id": "exact_no_match",
+      "pattern": "auth.login",
+      "value": "auth.logout",
+      "expected": false
+    },
+    {
+      "id": "wildcard_star",
+      "pattern": "*",
+      "value": "anything",
+      "expected": true
+    },
+    {
+      "id": "wildcard_prefix",
+      "pattern": "auth.*",
+      "value": "auth.login",
+      "expected": true
+    },
+    {
+      "id": "wildcard_prefix_no_match",
+      "pattern": "auth.*",
+      "value": "users.list",
+      "expected": false
+    },
+    {
+      "id": "wildcard_middle",
+      "pattern": "api.*.get",
+      "value": "api.users.get",
+      "expected": true
+    },
+    {
+      "id": "wildcard_middle_no_match",
+      "pattern": "api.*.get",
+      "value": "api.users.post",
+      "expected": false
+    },
+    {
+      "id": "partial_wildcard",
+      "pattern": "auth.log*",
+      "value": "auth.login",
+      "expected": true
+    },
+    {
+      "id": "partial_wildcard_no_match",
+      "pattern": "auth.log*",
+      "value": "auth.signup",
+      "expected": false
+    },
+    {
+      "id": "multi_segment_wildcard",
+      "pattern": "a.*.c.*",
+      "value": "a.b.c.d",
+      "expected": true
+    },
+    {
+      "id": "empty_value_no_match",
+      "pattern": "auth.*",
+      "value": "",
+      "expected": false
+    },
+    {
+      "id": "star_matches_single_segment",
+      "pattern": "a.*",
+      "value": "a.b",
+      "expected": true
+    }
+  ]
+}

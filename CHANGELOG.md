@@ -7,14 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.12.0] - 2026-03-10
+
+### Added
+
+#### Protocol Specification (v1.5.0-draft)
+- **Error catalog expanded** (§8.2) — Added `MODULE_DISABLED`, `EXECUTION_CANCELLED`, `RELOAD_FAILED` error codes with retryability classification and error hierarchy entries
+- **UsageCollector formalized** (§10.4) — Added usage tracking specification for `UsageCollector` and `UsageMiddleware` backing `system.usage.*` modules
+
+#### Conformance
+- **Shared conformance fixtures** (`conformance/fixtures/`) — 7 JSON fixture files for cross-language testing: `pattern_matching`, `specificity`, `normalize_id`, `call_chain`, `error_codes`, `version_negotiation`, `acl_evaluation`
+
+### Changed
+
+#### Protocol Specification
+- **Context.child() naming** (§12.7.2) — Standardized `derive()` → `child()` to match SDK implementations
+- **Forward-declared errors resolved** — `GENERAL_NOT_IMPLEMENTED` and `DEPENDENCY_NOT_FOUND` now fully implemented in both SDKs
+
+#### Documentation
+- **Cross-reference links** — Added links between API docs and feature docs (executor-api.md, context-object.md)
+- **Conformance known deviations** — Updated status of error code implementations
+
+### Fixed
+- **CHANGELOG count corrections** — System modules 10→9, APCore client methods 19→17
+- **Phantom entry removed** — TypeScript `batchProcessing` annotation (never implemented)
+
+---
+
+## [0.8.0] - 2026-03-09
+
+### Added
+
+#### Documentation — Updated Files
+- **Observability features** — `ErrorHistory`, `UsageCollector`, `PlatformNotifyMiddleware` documented
+- **Middleware guide** — Built-in `RetryMiddleware` + `RetryConfig` reference added
+- **Schema system** — `SchemaStrategy` and `ExportProfile` enums documented
+
+---
+
 ## [0.7.0] - 2026-03-09
 
 ### Added
 
 #### Documentation — New Files
-- **APCore Client API** (`docs/api/client-api.md`) — Full API reference for the unified `APCore` client covering 19 public methods: `call`, `call_async`, `stream`, `validate`, `module`, `register`, `discover`, `list_modules`, `describe`, `use`, `use_before`, `use_after`, `remove`, `on`, `off`, `disable`, `enable`, plus `events` property and global `apcore.*` entry points
+- **APCore Client API** (`docs/api/client-api.md`) — Full API reference for the unified `APCore` client covering 17 public methods: `call`, `call_async`, `stream`, `validate`, `module`, `register`, `discover`, `list_modules`, `describe`, `use`, `use_before`, `use_after`, `remove`, `on`, `off`, `disable`, `enable`, plus `events`/`registry`/`executor` properties and global `apcore.*` entry points
 - **Event System** (`docs/features/event-system.md`) — `EventEmitter`, `ApCoreEvent`, `EventSubscriber` protocol, `WebhookSubscriber` (retry strategy), `A2ASubscriber` (auth modes), subscriber type factory registry, event types table, and YAML configuration reference
-- **System Modules** (`docs/features/system-modules.md`) — Complete reference for 10 built-in `system.*` modules with input/output schemas: `system.health.summary`, `system.health.module`, `system.manifest.module`, `system.manifest.full`, `system.usage.summary`, `system.usage.module`, `system.control.update_config`, `system.control.reload_module`, `system.control.toggle_feature`; plus `register_sys_modules()` setup guide and YAML configuration
+- **System Modules** (`docs/features/system-modules.md`) — Complete reference for 9 built-in `system.*` modules with input/output schemas: `system.health.summary`, `system.health.module`, `system.manifest.module`, `system.manifest.full`, `system.usage.summary`, `system.usage.module`, `system.control.update_config`, `system.control.reload_module`, `system.control.toggle_feature`; plus `register_sys_modules()` setup guide and YAML configuration
 
 ### Changed
 

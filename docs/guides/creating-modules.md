@@ -51,8 +51,23 @@ Use **Annotations** to define your module's **Personality**.
 - For sensitive operations (spending money, deleting data), set `requires_approval: true`. This ensures a human always has the final word.
 
 ### 4. Recovery: Empower Self-Healing
-When an error occurs, use the `ai_guidance` field in your `ModuleError` to tell the Agent **exactly how to fix it**.
-- **Example**: "The email format is invalid. Please ask the user to provide a valid email address like 'name@example.com' and try again."
+When an error occurs, use the `ai_guidance` field in your `ModuleError` to tell the Agent **exactly what to do next** — not what went wrong (that's `message`'s job).
+
+| Field | Purpose | Example |
+| :--- | :--- | :--- |
+| `message` | What happened | `"Database connection failed"` |
+| `ai_guidance` | What to do next | `"Retry after 5s. If persistent, ask user to check DB credentials."` |
+| `suggestion` | Specific fix | `"Verify DB_HOST and DB_PORT environment variables"` |
+| `user_fixable` | Can user fix? | `true` |
+
+**Anti-patterns:**
+- ❌ `ai_guidance="An error occurred while processing the request"` — restates the error, no action
+- ❌ `ai_guidance="Please try again"` — too vague, no specificity
+
+**Good patterns:**
+- ✅ `ai_guidance="Email format is invalid. Ask the user for a valid email (user@domain.com)."`
+- ✅ `ai_guidance="Retry after 5s. If still failing after 3 retries, ask user to check network connectivity."`
+- ✅ `ai_guidance="File not found. Verify the path with the user. If correct, check read permissions."`
 
 ---
 

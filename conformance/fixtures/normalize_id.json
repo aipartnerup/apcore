@@ -1,0 +1,77 @@
+{
+  "description": "Cross-language ID normalization (Algorithm A02)",
+  "test_cases": [
+    {
+      "id": "python_module_path",
+      "local_id": "auth.handlers.login_handler",
+      "language": "python",
+      "expected": "auth.handlers.login_handler"
+    },
+    {
+      "id": "python_class_name",
+      "local_id": "auth.LoginHandler",
+      "language": "python",
+      "expected": "auth.login_handler"
+    },
+    {
+      "id": "typescript_camel_case",
+      "local_id": "auth.loginHandler",
+      "language": "typescript",
+      "expected": "auth.login_handler"
+    },
+    {
+      "id": "typescript_pascal_case",
+      "local_id": "Auth.LoginHandler",
+      "language": "typescript",
+      "expected": "auth.login_handler"
+    },
+    {
+      "id": "go_package_path",
+      "local_id": "auth.LoginHandler",
+      "language": "go",
+      "expected": "auth.login_handler"
+    },
+    {
+      "id": "rust_crate_path",
+      "local_id": "auth::login_handler",
+      "language": "rust",
+      "expected": "auth.login_handler"
+    },
+    {
+      "id": "java_package",
+      "local_id": "com.example.auth.LoginHandler",
+      "language": "java",
+      "expected": "com.example.auth.login_handler"
+    },
+    {
+      "id": "python_already_canonical",
+      "local_id": "auth.login",
+      "language": "python",
+      "expected": "auth.login"
+    },
+    {
+      "id": "typescript_dot_separated",
+      "local_id": "auth.handlers.UserService",
+      "language": "typescript",
+      "expected": "auth.handlers.user_service"
+    },
+    {
+      "id": "rust_double_colon",
+      "local_id": "crate::auth::mfa_handler",
+      "language": "rust",
+      "expected": "crate.auth.mfa_handler"
+    },
+    {
+      "id": "python_acronym_handling",
+      "local_id": "api.HTTPClient",
+      "language": "python",
+      "expected": "api.http_client"
+    },
+    {
+      "id": "typescript_nested_path",
+      "local_id": "api.v2.UserProfile",
+      "language": "typescript",
+      "expected": "api.v2.user_profile"
+    }
+  ]
+}

@@ -149,6 +149,7 @@ Level 1 adds permission control, middleware, basic observability, and structured
 - **Middleware tests** (10+ cases)
 - **Observability tests** (10+ cases)
 - **Context propagation tests** (5+ cases)
+- **Error guidance tests** (3+ cases): Verify framework errors include `ai_guidance` field with actionable recovery hints
 
 ---
 
@@ -209,6 +210,7 @@ Level 2 adds all extension points, async modules, hot loading, and advanced obse
 - **Async module tests** (10+ cases)
 - **Version compatibility tests** (5+ cases)
 - **Middleware state machine tests** (5+ cases)
+- **Schema export round-trip tests** (3+ cases): Verify field preservation across export profiles (especially `default` values in non-strict exports)
 
 ---
 
@@ -582,7 +584,7 @@ The following features are specified in PROTOCOL_SPEC but not yet fully implemen
 |---------|---------------|----------------|
 | `Config` class (YAML loading, env override, schema validation) | PROTOCOL_SPEC §9.1, §9.2, §9.3 | Stub implementation only. YAML loading, environment variable override, and `validate_config()` schema validation are not implemented. |
 | Registry schema query/export methods (`get_schema`, `export_schema`, etc.) | PROTOCOL_SPEC §12.2 | Not on `Registry`. A standalone `SchemaExporter` class is available for schema export. |
-| Error codes `GENERAL_NOT_IMPLEMENTED` and `DEPENDENCY_NOT_FOUND` | PROTOCOL_SPEC §8.2, §8.7 | Error code constants defined but corresponding error classes not yet implemented. |
+| Error codes `GENERAL_NOT_IMPLEMENTED` and `DEPENDENCY_NOT_FOUND` | PROTOCOL_SPEC §8.2, §8.7 | Implemented in both SDKs as `FeatureNotImplementedError` and `DependencyNotFoundError`. |
 | Version negotiation | PROTOCOL_SPEC §13.3 | `negotiate_version()` algorithm not yet implemented. |
 | Schema migration | PROTOCOL_SPEC §13.4 | `migrate_schema()` algorithm not yet implemented. |
 | Module isolation | PROTOCOL_SPEC §5.5 | Process-level or container-level isolation not yet implemented. |

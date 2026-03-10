@@ -95,6 +95,26 @@ class Context:
     data: dict[str, Any] = field(default_factory=dict)
 ```
 
+#### `data` Key Conventions
+
+`context.data` is a shared mutable dictionary. To prevent key collisions between framework internals and module code, a single reserved prefix convention applies:
+
+| Prefix | Reserved For | Example |
+|------|------|------|
+| `_apcore.` | All framework internals | See hierarchy below |
+| (no prefix) | Application / Module use | `user_session_id`, `pipeline_result` |
+
+**Hierarchy under `_apcore.`:**
+
+| Key Pattern | Subsystem | Example |
+|------|------|------|
+| `_apcore.mw.{middleware}.{field}` | Middleware private state | `_apcore.mw.logging.start_time` |
+| `_apcore.mw.{middleware}.{field}.{id}` | Per-module middleware state | `_apcore.mw.retry.count.mod.a` |
+| `_apcore.executor.{field}` | Executor internals | `_apcore.executor.global_deadline` |
+
+- All framework components (middleware, executor, registry) **MUST** use `_apcore.` prefixed keys.
+- Module developers **MUST NOT** use `_apcore.` prefixed keys.
+
 ### 2.1 Field Constraint Table
 
 | Field | Type | Required | Max Length/Depth | Thread Safe | Serializable |
@@ -732,4 +752,6 @@ Implementations **MUST** handle Context edge cases per the following table:
 
 - [Module Interface Definition](./module-interface.md) - How modules use Context
 - [Executor API](./executor-api.md) - How executor manages Context
+- [Core Executor Feature](../features/core-executor.md) - Executor pipeline and context propagation
 - [Middleware Guide](../guides/middleware.md) - How middleware accesses Context
+- [Observability](../features/observability.md) - Tracing, metrics, and context logger

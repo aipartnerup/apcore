@@ -1163,6 +1163,34 @@ def test_with_mock_registry():
 
 ---
 
+## 6.5 Output Verification
+
+Schema validation (Executor Step 9) ensures output structural correctness, but does not guarantee semantic correctness. Module tests **should** additionally verify output content.
+
+### Verification Levels
+
+| Level | What to Verify | Automated? | Example |
+|------|------|------|------|
+| **Schema** | Output matches `output_schema` | Yes (Executor Step 9) | Handled by framework |
+| **Content** | Output contains expected values | Manual assertion | `assert result["status"] == "sent"` |
+| **Side Effect** | External state changed correctly | Manual assertion | `assert os.path.exists(result["path"])` |
+| **Format** | Binary output has correct format | Manual assertion | `assert content[:4] == b"%PDF"` |
+
+### Anti-Pattern: Trust-Based Testing
+
+```python
+# ❌ BAD: Only checks no exception was raised
+result = executor.call("export.render", {"format": "pdf"})
+assert result is not None
+
+# ✅ GOOD: Verifies semantic output
+result = executor.call("export.render", {"format": "pdf"})
+assert result["file_path"].endswith(".pdf")
+assert os.path.getsize(result["file_path"]) > 0
+```
+
+---
+
 ## 7. Testing Best Practices
 
 ### 7.1 Test Naming Convention

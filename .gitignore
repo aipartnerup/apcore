@@ -1,2 +1,4 @@
 site/
 ideas/
+.idea/
+.DS_Store

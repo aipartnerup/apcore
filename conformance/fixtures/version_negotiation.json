@@ -1,0 +1,65 @@
+{
+  "description": "Version negotiation (Algorithm A14)",
+  "test_cases": [
+    {
+      "id": "same_version",
+      "declared": "1.2.3",
+      "sdk": "1.2.3",
+      "expected": "1.2.3"
+    },
+    {
+      "id": "same_minor_declared_higher_patch",
+      "declared": "1.2.5",
+      "sdk": "1.2.3",
+      "expected": "1.2.5"
+    },
+    {
+      "id": "same_minor_sdk_higher_patch",
+      "declared": "1.2.3",
+      "sdk": "1.2.5",
+      "expected": "1.2.5"
+    },
+    {
+      "id": "backward_compat_returns_declared",
+      "declared": "1.2.0",
+      "sdk": "1.4.0",
+      "expected": "1.2.0"
+    },
+    {
+      "id": "prerelease_lower_than_release",
+      "declared": "1.2.3-alpha",
+      "sdk": "1.2.3",
+      "expected": "1.2.3"
+    },
+    {
+      "id": "major_mismatch_error",
+      "declared": "2.0.0",
+      "sdk": "1.0.0",
+      "expected_error": "VERSION_INCOMPATIBLE"
+    },
+    {
+      "id": "declared_minor_exceeds_sdk_error",
+      "declared": "1.5.0",
+      "sdk": "1.3.0",
+      "expected_error": "VERSION_INCOMPATIBLE"
+    },
+    {
+      "id": "invalid_version_error",
+      "declared": "not.valid",
+      "sdk": "1.0.0",
+      "expected_error": "ValueError"
+    },
+    {
+      "id": "zero_major",
+      "declared": "0.1.0",
+      "sdk": "0.1.2",
+      "expected": "0.1.2"
+    },
+    {
+      "id": "large_versions",
+      "declared": "99.100.200",
+      "sdk": "99.100.300",
+      "expected": "99.100.300"
+    }
+  ]
+}

@@ -924,5 +924,9 @@ print(f"Sent {len([r for r in results if not isinstance(r, Exception)])} emails"
 
 - [Registry API](./registry-api.md) - Module registration and discovery
 - [Context Object](./context-object.md) - Execution context
+- [Core Executor Feature](../features/core-executor.md) - Detailed executor pipeline specification
+- [Middleware System](../features/middleware-system.md) - Middleware architecture and built-in middleware
 - [Middleware Guide](../guides/middleware.md) - Middleware development
+- [ACL System](../features/acl-system.md) - Access control architecture
 - [ACL Configuration Guide](../guides/acl-configuration.md) - Access control configuration
+- [Approval System](../features/approval-system.md) - Human approval workflow

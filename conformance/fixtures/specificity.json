@@ -1,0 +1,55 @@
+{
+  "description": "ACL pattern specificity scoring (Algorithm A10)",
+  "test_cases": [
+    {
+      "id": "global_wildcard",
+      "pattern": "*",
+      "expected_score": 0
+    },
+    {
+      "id": "single_literal",
+      "pattern": "auth",
+      "expected_score": 2
+    },
+    {
+      "id": "two_literals",
+      "pattern": "auth.login",
+      "expected_score": 4
+    },
+    {
+      "id": "three_literals",
+      "pattern": "auth.login.mfa",
+      "expected_score": 6
+    },
+    {
+      "id": "literal_dot_wildcard",
+      "pattern": "auth.*",
+      "expected_score": 2
+    },
+    {
+      "id": "wildcard_dot_literal",
+      "pattern": "*.login",
+      "expected_score": 2
+    },
+    {
+      "id": "partial_wildcard_segment",
+      "pattern": "auth.log*",
+      "expected_score": 3
+    },
+    {
+      "id": "two_wildcards",
+      "pattern": "*.*",
+      "expected_score": 0
+    },
+    {
+      "id": "mixed_literal_wildcard",
+      "pattern": "api.*.get",
+      "expected_score": 4
+    },
+    {
+      "id": "all_partial",
+      "pattern": "a*.b*.c*",
+      "expected_score": 3
+    }
+  ]
+}

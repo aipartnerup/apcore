@@ -1,0 +1,84 @@
+{
+  "description": "ACL rule evaluation (first-match-wins)",
+  "test_cases": [
+    {
+      "id": "allow_rule_match",
+      "rules": [
+        {"callers": ["admin"], "targets": ["*"], "effect": "allow"}
+      ],
+      "default_effect": "deny",
+      "caller": "admin",
+      "target": "auth.login",
+      "expected": true
+    },
+    {
+      "id": "deny_rule_match",
+      "rules": [
+        {"callers": ["*"], "targets": ["admin.*"], "effect": "deny"}
+      ],
+      "default_effect": "allow",
+      "caller": "user",
+      "target": "admin.delete",
+      "expected": false
+    },
+    {
+      "id": "first_match_wins",
+      "rules": [
+        {"callers": ["admin"], "targets": ["*"], "effect": "allow"},
+        {"callers": ["admin"], "targets": ["*"], "effect": "deny"}
+      ],
+      "default_effect": "deny",
+      "caller": "admin",
+      "target": "anything",
+      "expected": true
+    },
+    {
+      "id": "default_deny",
+      "rules": [
+        {"callers": ["admin"], "targets": ["*"], "effect": "allow"}
+      ],
+      "default_effect": "deny",
+      "caller": "user",
+      "target": "auth.login",
+      "expected": false
+    },
+    {
+      "id": "default_allow",
+      "rules": [],
+      "default_effect": "allow",
+      "caller": "anyone",
+      "target": "anything",
+      "expected": true
+    },
+    {
+      "id": "null_caller_becomes_external",
+      "rules": [
+        {"callers": ["@external"], "targets": ["public.*"], "effect": "allow"}
+      ],
+      "default_effect": "deny",
+      "caller": null,
+      "target": "public.api",
+      "expected": true
+    },
+    {
+      "id": "multiple_caller_patterns_or",
+      "rules": [
+        {"callers": ["admin", "moderator"], "targets": ["*"], "effect": "allow"}
+      ],
+      "default_effect": "deny",
+      "caller": "moderator",
+      "target": "posts.delete",
+      "expected": true
+    },
+    {
+      "id": "wildcard_target_pattern",
+      "rules": [
+        {"callers": ["*"], "targets": ["public.*"], "effect": "allow"}
+      ],
+      "default_effect": "deny",
+      "caller": "anonymous",
+      "target": "public.health",
+      "expected": true
+    }
+  ]
+}
