@@ -10,7 +10,12 @@ A schema-enforced module standard for the AI-Perceivable era.
 
 apcore is an **AI-Perceivable module standard** that makes every interface naturally perceivable and understandable by AI through enforced Schema definitions and behavioral annotations.
 
-**apcore is a protocol specification.** Language implementations are maintained in separate repositories — see [Implementations](#implementations).
+**apcore is a protocol specification.** Language implementations are maintained in separate repositories:
+
+| SDK | Language | Install | Repository |
+|-----|----------|---------|------------|
+| **apcore** | Python | `pip install apcore` | [github.com/aipartnerup/apcore-python](https://github.com/aipartnerup/apcore-python) |
+| **apcore-js** | TypeScript | `npm install apcore-js` | [github.com/aipartnerup/apcore-typescript](https://github.com/aipartnerup/apcore-typescript) |
 
 ---
 
