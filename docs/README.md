@@ -75,7 +75,7 @@ Implementation-ready feature specifications for SDK developers. Each document de
 |--------------|-------------|
 | [ACL System](./features/acl-system.md) | Pattern-based Access Control List with first-match-wins evaluation |
 | [Approval System](./features/approval-system.md) | Runtime enforcement of `requires_approval` via pluggable ApprovalHandler |
-| [Core Executor](./features/core-executor.md) | Central orchestration engine with 11-step execution pipeline |
+| [Core Executor](./features/core-executor.md) | Central execution engine with a secured execution lifecycle |
 | [Decorator & YAML Bindings](./features/decorator-bindings.md) | `@module` decorator and YAML-based declarative module creation |
 | [Middleware System](./features/middleware-system.md) | Composable middleware pipeline with onion execution model |
 | [Observability](./features/observability.md) | Distributed tracing, metrics collection, and structured logging |

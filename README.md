@@ -231,7 +231,7 @@ extensions/
 
 ### Execution Flow
 
-A module call goes through a rigorous **11-step pipeline**:
+A module call goes through a rigorous **Execution Pipeline**:
 
 ```
 executor.call("executor.email.send_email", inputs, context)
@@ -1085,7 +1085,7 @@ Development guide: see [Adapter Development Guide](./docs/guides/adapter-develop
 | Document | Description |
 |------|------|
 | [ACL System](./docs/features/acl-system.md) | Pattern-based Access Control List with first-match-wins evaluation |
-| [Core Executor](./docs/features/core-executor.md) | Core execution engine with 11-step pipeline |
+| [Core Executor](./docs/features/core-executor.md) | Central execution engine with a secured execution lifecycle |
 | [Decorator & YAML Bindings](./docs/features/decorator-bindings.md) | `@module` decorator and YAML-based module creation |
 | [Middleware System](./docs/features/middleware-system.md) | Composable middleware pipeline with onion execution model |
 | [Observability](./docs/features/observability.md) | Distributed tracing, metrics, and structured logging |

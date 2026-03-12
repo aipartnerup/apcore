@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Core Execution Engine is the central orchestration component of apcore. It processes module calls through a structured 11-step pipeline, handling everything from context creation and safety checks to module execution with timeout enforcement and result validation. The engine supports both synchronous and asynchronous execution paths, bridging between the two via threading and an async event loop bridge.
+The Core Execution Engine is the central orchestration component of apcore. It processes module calls through a secured execution lifecycle, handling everything from context creation and safety checks to module execution with timeout enforcement and result validation. The engine supports both synchronous and asynchronous execution paths, bridging between the two via threading and an async event loop bridge.
 
 ## Requirements
 
@@ -16,7 +16,7 @@ The Core Execution Engine is the central orchestration component of apcore. It p
 
 ## Technical Design
 
-### 11-Step Execution Pipeline
+### Execution Pipeline
 
 The executor processes every module call through the following pipeline:
 
@@ -49,7 +49,7 @@ The executor processes every module call through the following pipeline:
 
 ### Key Classes
 
-- **Executor** -- The main engine class that implements the 11-step pipeline. Manages middleware registration, timeout configuration, and the execution loop.
+- **Executor** -- The main engine class that implements the execution pipeline. Manages middleware registration, timeout configuration, and the execution loop.
 - **Context** -- Immutable data class carrying call metadata: caller identity, call chain history, depth counter, and propagated key-value state.
 - **Identity** -- Represents the caller's identity for ACL enforcement. Carries roles, permissions, and an identifier.
 - **Config** -- Configuration data class holding executor-level settings such as max call depth, timeout defaults, and throttle limits.
@@ -81,7 +81,7 @@ The `validate()` method provides a non-destructive preflight check that runs Ste
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `executor.py` | 634 | Core execution engine implementing the 11-step pipeline |
+| `executor.py` | 634 | Core execution engine implementing the execution pipeline |
 | `context.py` | 66 | Context and Identity data classes |
 | `config.py` | 29 | Executor configuration data class |
 | `errors.py` | 395 | Structured error types for every failure mode in the pipeline |
