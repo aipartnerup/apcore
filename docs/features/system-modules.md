@@ -2,7 +2,7 @@
 
 ## Overview
 
-Built-in `system.*` modules provide AI bidirectional introspection — allowing AI agents to query, monitor, and control the apcore runtime. System modules are registered automatically when `sys_modules.enabled: true` in config, and use the reserved `system.*` namespace (see PROTOCOL_SPEC §2.5, §11.9).
+Built-in `system.*` modules provide AI bidirectional introspection — allowing AI agents to query, monitor, and control the apcore runtime. System modules are registered automatically when `sys_modules.enabled: true` in config, and use the reserved `system.*` namespace (see PROTOCOL_SPEC §2.5, §6.6).
 
 ## Requirements
 
@@ -446,7 +446,7 @@ sys_modules:
 - `EventEmitter` — Event dispatch for control modules.
 
 ### Permissions
-System modules use the reserved `system.*` namespace. Registration bypasses reserved word checks via `registry.register_internal()`. See [PROTOCOL_SPEC §11.9](../../PROTOCOL_SPEC.md) for the defense-in-depth permission model.
+System modules use the reserved `system.*` namespace. Registration bypasses reserved word checks via `registry.register_internal()`. See [PROTOCOL_SPEC §6.6](../../PROTOCOL_SPEC.md) for the defense-in-depth permission model.
 
 ## Key Files
 

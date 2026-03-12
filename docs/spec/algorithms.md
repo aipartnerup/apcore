@@ -30,8 +30,8 @@ The apcore specification defines multiple algorithms that must or should be impl
 | A16 | `load_extensions()` | Extension loading | §11.7 | **MUST** |
 | A17 | `detect_error_code_collisions()` | Error code collision detection | §8.4 | **MUST** |
 | A20 | `guard_call_chain()` | Call chain safety check | §Executor | **MUST** |
-| A21 | `safe_unregister()` | Hot-reload safe unregistration | §12.7.3 | **MUST** |
-| A22 | `enforce_timeout()` | Timeout enforcement | §12.7.4 | **MUST** |
+| A21 | `safe_unregister()` | Hot-reload safe unregistration | §12.7.4 | **MUST** |
+| A22 | `enforce_timeout()` | Timeout enforcement | §12.7.5 | **MUST** |
 | A23 | `to_strict_schema()` | Strict Mode Schema conversion | §4.16 | **SHOULD** |
 
 ### 1.3 Conventions
@@ -1479,7 +1479,7 @@ to_strict_schema()              ←── export_schema(strict=true)
 
 ### A21: `safe_unregister()` — Hot-reload Safe Unregistration
 
-**Source**: PROTOCOL_SPEC §12.7.3
+**Source**: PROTOCOL_SPEC §12.7.4
 
 **Purpose**: Safely unregister module when it may be executing, avoiding race conditions and resource leaks.
 
@@ -1607,7 +1607,7 @@ class Registry:
 
 ### A22: `enforce_timeout()` — Timeout Enforcement
 
-**Source**: PROTOCOL_SPEC §12.7.4
+**Source**: PROTOCOL_SPEC §12.7.5
 
 **Purpose**: Ensure module execution completes within specified time, cooperative cancellation or forced termination after timeout.
 

@@ -81,7 +81,7 @@ Schema is auto-generated from type annotations, existing code logic remains unch
 | **Directory as ID** | File paths automatically become module IDs, zero-config |
 | **Convention over Configuration** | Works by following conventions, no tedious configuration |
 | **AI-Perceivable** | Designed from the start to be AI-perceivable and understandable |
-| **Universal Framework** | Not just AI framework, but universal module development framework |
+| **Universal Standard** | Not just AI framework, but a universal module standard that is naturally AI-Perceivable |
 
 ---
 
@@ -129,6 +129,8 @@ class MyModule(Module):
 | `metadata` | dict[str, Any] | Free extension metadata |
 | `on_load()` | method | Load hook |
 | `on_unload()` | method | Unload hook |
+| `on_suspend()` | method | Hot-reload state export hook |
+| `on_resume()` | method | Hot-reload state restore hook |
 
 ---
 
@@ -346,11 +348,25 @@ class SendEmailModule(Module):
     output_schema = SendEmailOutputSchema
 
     metadata = {
-        "cost_per_call": 0.001,
-        "avg_latency_ms": 500,
+        # AI intent hints
+        "x-when-to-use": "Use for transactional emails (order confirmation, password reset)",
+        "x-when-not-to-use": "Do not use for bulk/marketing emails",
+
+        # AI planning hints
+        "x-preconditions": ["SMTP server must be configured", "Recipient must be validated"],
+        "x-postconditions": ["Email queued for delivery"],
+        "x-side-effects": ["Sends email via external SMTP server"],
+
+        # Performance & cost hints
+        "x-cost-per-call": 0.001,
+        "x-avg-latency-ms": 500,
+
+        # Trust hints
+        "x-output-source": "api",
+
+        # Operations info
         "data_sensitivity": ["PII"],
         "owner": "email-team",
-        "documentation_url": "https://docs.example.com/send-email"
     }
 ```
 
@@ -367,12 +383,14 @@ class SendEmailModule(Module):
 ├──────────────────────────────────────────────────────┤
 │  Annotation Layer (optional, type-safe)              │
 │  annotations / examples / name / tags / version      │
+│  cacheable / paginated / streaming                   │
 │  → AI understands module "how to use"                │
 ├──────────────────────────────────────────────────────┤
 │  Extension Layer (optional, free dict)               │
 │  metadata: dict[str, Any]                            │
-│  → Custom requirements (framework doesn't validate); │
-│    AI tactical wisdom (x-when-to-use, etc.)          │
+│  → AI intent (x-when-to-use), planning              │
+│    (x-preconditions), cost (x-cost-per-call),        │
+│    trust (x-output-source), and custom fields        │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -384,7 +402,7 @@ class SendEmailModule(Module):
 | Annotation Layer | Optional but type-safe, framework understands | Occasionally add fields |
 | Extension Layer | Completely free, framework doesn't interpret | Can extend anytime |
 
-**Recommended AI Intent Metadata Keys** (PROTOCOL_SPEC §4.6):
+**Recommended AI Metadata Conventions** (PROTOCOL_SPEC §4.6):
 
 The following `x-*` keys are conventions for guiding AI agents. They are not enforced by the framework but provide tactical wisdom in the Extension Layer:
 
@@ -394,6 +412,15 @@ The following `x-*` keys are conventions for guiding AI agents. They are not enf
 | `x-when-not-to-use` | Scenarios where a different module should be used | `"Do not use for marketing/bulk emails"` |
 | `x-common-mistakes` | Known pitfalls AI agents frequently encounter | `"Forgetting to set reply_to; passing HTML in plain text field"` |
 | `x-workflow-hints` | Suggested pre/post steps or related modules | `"Call validate-email first to verify recipient exists"` |
+| `x-preconditions` | What must be true before calling this module | `"User must be authenticated"` |
+| `x-postconditions` | What will be true after successful execution | `"Email is queued for delivery"` |
+| `x-side-effects` | External state changes caused by this module | `"Sends email, logs to audit trail"` |
+| `x-cost-per-call` | Estimated cost per invocation | `0.001` |
+| `x-avg-latency-ms` | Average execution latency in milliseconds | `500` |
+| `x-max-latency-ms` | Maximum expected latency in milliseconds | `5000` |
+| `x-sla` | SLA targets (availability, latency percentiles) | `{"availability": "99.9%", "p99_latency_ms": 5000}` |
+| `x-output-source` | Data provenance | `"database"` |
+| `x-verification-hint` | How to cross-check the output for correctness | `"Cross-check amounts with accounting.get_balance"` |
 
 ```yaml
 # In module metadata or schema x-* fields

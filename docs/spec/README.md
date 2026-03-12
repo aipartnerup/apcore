@@ -2,7 +2,7 @@
 
 > The official technical specification of apcore, intended for SDK implementers.
 
-This directory contains the official specification documents for the apcore framework. These documents define the algorithms, type mappings, and conformance requirements that all language SDK implementations must follow. The specification documents use RFC 2119 keywords (MUST, SHOULD, MAY, etc.) to distinguish the level of obligation for each requirement.
+This directory contains the official specification documents for the apcore standard. These documents define the algorithms, type mappings, and conformance requirements that all language SDK implementations must follow. The specification documents use RFC 2119 keywords (MUST, SHOULD, MAY, etc.) to distinguish the level of obligation for each requirement.
 
 ## Document List
 

@@ -5,7 +5,10 @@
 ## 1. Project Positioning
 
 **One-line definition**:
-> apcore (AI-Perceivable Core) is a Schema-driven module development framework that makes every interface naturally perceivable and understandable by AI.
+> apcore (AI-Perceivable Core) is an AI-Perceivable module standard that makes every interface naturally perceivable and understandable by AI through enforced Schema definitions and behavioral annotations.
+
+**Slogan**:
+> Build once, invoke by Code or AI.
 
 **Core problem**:
 > How to build modules that can be both invoked by code and perceived and understood by AI/LLMs?
@@ -15,10 +18,10 @@
 
 **Positioning**:
 ```
-apcore = General-purpose module development framework + Mandatory AI-Perceivable standard
+apcore = AI-Perceivable module standard + Enforced Schema definitions
 
 Not: A framework that can only be used in AI scenarios
-But: A general-purpose framework that is inherently AI-Perceivable
+But: A universal module standard that is naturally AI-Perceivable
 ```
 
 **Analogy**:
@@ -87,11 +90,16 @@ Things explicitly **not within the project scope**:
 | Won't Do | Reason | Owned By |
 |------|------|--------|
 | **Workflow Engine** | Application-layer orchestration logic, not framework core | apflow and other upstream projects |
-| **MCP/A2A Adapters** | Usage scenarios, not core protocol | Independent adapter projects |
-| **Concrete Business Modules** | We are a framework, not an application | Upstream projects |
+| **MCP/A2A Adapters** | Protocol adaptation, not core standard | [apcore-mcp](https://github.com/aipartnerup/apcore-mcp), [apcore-a2a](https://github.com/aipartnerup/apcore-a2a) |
+| **Rate Limiting / Circuit Breaker** | Runtime resilience middleware, not module definition | apcore-toolkit (middleware implementations) |
+| **Secret Injection / Vault Integration** | Runtime infrastructure, not module standard | apcore-toolkit |
+| **Testing Framework** | Developer tooling, not protocol | [apcore-testing](https://github.com/aipartnerup/apcore-testing) |
+| **SLA Monitoring / Alerting** | Runtime enforcement (SLA _declaration_ is Core metadata) | apcore-toolkit |
+| **Token Counting / Context Window Mgmt** | LLM-specific; apcore stays AI-neutral | Agent frameworks |
+| **Concrete Business Modules** | We are a standard, not an application | Upstream projects |
 | **LLM Invocation Wrappers** | Stay neutral, don't bind to a specific LLM | LangChain/LlamaIndex/pydantic-ai |
 | **Agent Strategies** | Too high-level, belongs to application logic | CrewAI/AutoGen/pydantic-ai |
-| **Prompt Templates** | AI orchestration belongs to upper layers, not the module framework | Agent frameworks |
+| **Prompt Templates** | AI orchestration belongs to upper layers | Agent frameworks |
 | **Distributed Execution** | Advanced runtime feature | Independent extension projects |
 | **UI/CLI Applications** | Focus on core protocol | Upstream projects |
 | **Specific Cloud Service Integrations** | Stay neutral | Extension packages |
@@ -158,16 +166,26 @@ Use these scenarios to validate whether our boundaries are correct:
 | Error handling | ✅ Core | Required |
 | Tracing/logging | ✅ Core | Observability foundation |
 | Middleware mechanism | ✅ Core | Extension foundation |
-| **Workflow Engine** | ⚡ Extension | Upper-layer orchestration logic |
-| **MCP Adapter** | ⚡ Extension | Protocol adaptation |
-| **A2A Adapter** | ⚡ Extension | Protocol adaptation |
-| **Distributed Execution** | ⚡ Extension | Advanced feature |
-| **Web UI** | ❌ Won't Do | Out of scope |
+| Behavior annotations (readonly, cacheable, paginated, etc.) | ✅ Core | AI-Perceivable behavior hints |
+| AI metadata conventions (x-preconditions, x-cost-per-call, etc.) | ✅ Core | Recommended metadata keys for AI planning |
+| Deprecation & sunset (deprecated, sunset_date, replacement) | ✅ Core | Module lifecycle metadata |
 | `module()` registration (Decorator / function call) | ✅ Core | Least intrusive integration for existing applications |
 | External Schema Binding | ✅ Core | Zero code modification integration |
 | Type inference Schema generation | ✅ Core | Foundational capability for module() and Binding |
+| **MCP Adapter** | ⚡ Ecosystem ([apcore-mcp](https://github.com/aipartnerup/apcore-mcp)) | Protocol adaptation |
+| **A2A Adapter** | ⚡ Ecosystem ([apcore-a2a](https://github.com/aipartnerup/apcore-a2a)) | Protocol adaptation |
+| **Rate Limiting / Circuit Breaker** | ⚡ Ecosystem (apcore-toolkit) | Runtime resilience; implemented as middleware |
+| **Secret Injection** | ⚡ Ecosystem (apcore-toolkit) | Runtime infrastructure; `x-sensitive` marking is Core |
+| **Testing Framework** | ⚡ Ecosystem ([apcore-testing](https://github.com/aipartnerup/apcore-testing)) | Developer tooling: MockModule, ContractTest, fixtures |
+| **OpenAPI / AsyncAPI Export** | ⚡ Ecosystem (apcore-toolkit) | Additional export formats beyond built-in SchemaExporter |
+| **SLA Monitoring / Alerting** | ⚡ Ecosystem (apcore-toolkit) | Runtime enforcement; `x-sla` declaration is Core metadata |
+| **Dev Server / Hot Reload** | ⚡ Ecosystem (apcore-toolkit) | Developer experience tooling |
+| **Workflow Engine** | ⚡ Ecosystem (apflow) | Upper-layer orchestration logic |
+| **Distributed Execution** | ⚡ Ecosystem | Advanced runtime feature |
 | **Framework Adapters** | ❌ Won't Do (independent repository) | Keep core pure, belongs to ecosystem projects |
-| **AI-Assisted Migration Tools** | ⚡ Extension | Developer experience tooling |
+| **Web UI** | ❌ Won't Do | Out of scope |
+| **Token Counting / Context Window** | ❌ Won't Do | LLM-specific; apcore stays AI-neutral |
+| **AI-Assisted Migration Tools** | ⚡ Ecosystem | Developer experience tooling |
 
 ---
 
@@ -193,12 +211,18 @@ Use these scenarios to validate whether our boundaries are correct:
 ## 8. Confirmed Decisions
 
 - [x] Workflow: **Won't Do** (application-layer logic, implemented by upstream projects like apflow)
-- [x] MCP/A2A adaptation: **Won't Do** (only provide mapping reference documentation)
+- [x] MCP/A2A adaptation: **Ecosystem** (apcore-mcp, apcore-a2a as independent adapter projects)
 - [x] Distributed execution: **Won't Do** (runtime feature, not protocol core)
 - [ ] Schema and Meta files: Keep separated
 - [x] Existing application integration: **Core** (`module()` registration and external Schema binding are core standards)
 - [x] Framework adapters: **Won't Do** (independent repositories, apcore only provides adapter interface specification)
 - [x] API naming: **No prefix** (rely on language namespaces; languages without namespace mechanisms use `apcore_` prefix)
+- [x] Behavior annotations (cacheable, paginated): **Core** (AI-Perceivable behavior hints for agent decision-making)
+- [x] AI metadata conventions (x-preconditions, x-cost-per-call, etc.): **Core** (recommended metadata keys, not enforced)
+- [x] Rate limiting / circuit breaker: **Ecosystem** (runtime middleware, not module definition)
+- [x] Secret injection: **Ecosystem** (runtime infrastructure; `x-sensitive` marking remains Core)
+- [x] Testing framework: **Ecosystem** (apcore-testing — MockModule, ContractTest, fixtures)
+- [x] Token counting / context window: **Won't Do** (LLM-specific, apcore stays AI-neutral)
 
 ## 9. Document Structure
 

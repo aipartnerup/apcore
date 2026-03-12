@@ -188,53 +188,68 @@ Executor is responsible for module invocation and execution.
 │                    │                                         │
 │                    ▼                                         │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  1. Context Processing                                 │  │
+│  │  1. Context Creation                                   │  │
 │  │     - Create/validate Context                          │  │
 │  │     - Update caller_id, call_chain                     │  │
 │  └───────────────────────┬──────────────────────────────┘  │
 │                          ▼                                   │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  2. Lookup Module                                     │  │
+│  │  2. Safety Checks                                     │  │
+│  │     - Call depth, circular call, frequency limits     │  │
+│  └───────────────────────┬──────────────────────────────┘  │
+│                          ▼                                   │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  3. Module Lookup                                     │  │
 │  │     - registry.get(module_id)                         │  │
 │  │     - Throw ModuleNotFoundError if not found          │  │
 │  └───────────────────────┬──────────────────────────────┘  │
 │                          ▼                                   │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  3. ACL Check                                         │  │
+│  │  4. ACL Enforcement                                   │  │
 │  │     - Check caller → target permission                 │  │
 │  │     - Throw ACLDeniedError if rejected                 │  │
 │  └───────────────────────┬──────────────────────────────┘  │
 │                          ▼                                   │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  4. Input Validation                                  │  │
-│  │     - Validate against input_schema                   │  │
-│  │     - Throw ValidationError on failure                 │  │
+│  │  5. Approval Gate                                     │  │
+│  │     - Check requires_approval annotation              │  │
+│  │     - Request approval if needed                       │  │
 │  └───────────────────────┬──────────────────────────────┘  │
 │                          ▼                                   │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  5. Middleware before                                 │  │
+│  │  6. Input Validation                                  │  │
+│  │     - Validate against input_schema                   │  │
+│  │     - Throw SchemaValidationError on failure           │  │
+│  └───────────────────────┬──────────────────────────────┘  │
+│                          ▼                                   │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  7. Middleware Before                                 │  │
 │  │     - Execute middleware.before() in order            │  │
 │  │     - Can modify inputs                               │  │
 │  └───────────────────────┬──────────────────────────────┘  │
 │                          ▼                                   │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  6. Module Execution                                  │  │
+│  │  8. Module Execution                                  │  │
 │  │     - module.execute(inputs, context)                 │  │
+│  │     - Dual timeout (per-module + global)              │  │
 │  │     - Call middleware.on_error() on exception         │  │
 │  └───────────────────────┬──────────────────────────────┘  │
 │                          ▼                                   │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  7. Output Validation                                 │  │
+│  │  9. Output Validation                                 │  │
 │  │     - Validate against output_schema                  │  │
 │  └───────────────────────┬──────────────────────────────┘  │
 │                          ▼                                   │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  8. Middleware after                                  │  │
+│  │ 10. Middleware After                                  │  │
 │  │     - Execute middleware.after() in reverse order     │  │
 │  │     - Can modify output                               │  │
 │  └───────────────────────┬──────────────────────────────┘  │
 │                          ▼                                   │
-│                       Return result                          │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ 11. Result Return                                     │  │
+│  │     - Return final output                              │  │
+│  └──────────────────────────────────────────────────────┘  │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -674,7 +689,7 @@ Shared resources:
 - During `unregister()`, module may be executing in other threads
 - Implementation must maintain reference count, wait for execution completion before unload
 - After timeout (default 30 seconds), force unload and log error
-- See [PROTOCOL_SPEC §11.7.3 Hot Reload Race Conditions](../PROTOCOL_SPEC.md#1173-hot-reload-race-conditions)
+- See [PROTOCOL_SPEC §12.7.4 Hot Reload Race Conditions](../PROTOCOL_SPEC.md#1274-hot-reload-race-conditions)
 
 **Middleware Chain Atomicity:**
 
@@ -727,7 +742,7 @@ def sync_caller():
    - After cooperative cancellation fails, wait grace period (default 5 seconds)
    - If still not exited, force terminate thread/coroutine (may cause resource leaks)
 
-See [PROTOCOL_SPEC §11.7.4 Timeout Enforcement](../PROTOCOL_SPEC.md#1174-timeout-enforcement)
+See [PROTOCOL_SPEC §12.7.5 Timeout Enforcement](../PROTOCOL_SPEC.md#1275-timeout-enforcement)
 
 ## 8. Memory Model
 

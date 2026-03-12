@@ -81,6 +81,14 @@ class Module(Protocol):
         """Called when module is unloaded"""
         pass
 
+    def on_suspend(self) -> dict | None:
+        """Called before hot-reload. Return state to preserve, or None."""
+        return None
+
+    def on_resume(self, state: dict) -> None:
+        """Called after hot-reload. Restore state from on_suspend()."""
+        pass
+
     # ============ Optional Methods ============
 
     def validate(self, inputs: dict[str, Any]) -> "ValidationResult":
@@ -349,6 +357,7 @@ class SendEmailModule(Module):
 | `execute()` | **MUST** | Must be implemented (`def` or `async def`), framework auto-detects sync/async |
 | `validate()` | **MAY** | Optional implementation; should have no side effects when called |
 | `on_load()` / `on_unload()` | **MAY** | Optional implementation; exceptions should not block other module loading |
+| `on_suspend()` / `on_resume()` | **MAY** | Optional; preserve and restore state across hot-reload cycles |
 | `name` | **MAY** | Optional; generated from class name by default |
 | `tags` | **MAY** | Optional; empty list by default |
 | `version` | **MAY** | Optional; defaults to "1.0.0", must conform to semver |
@@ -424,6 +433,11 @@ class ModuleAnnotations:
     requires_approval: bool = False # Requires human confirmation
     open_world: bool = True         # Involves external systems
     streaming: bool = False         # Supports streaming output
+    cacheable: bool = False         # Output can be cached
+    cache_ttl: int = 0              # Cache duration in seconds (0 = no cache)
+    cache_key_fields: list[str] | None = None  # Input fields for cache key (None = all)
+    paginated: bool = False         # Returns paginated results
+    pagination_style: str = "cursor"  # "cursor", "offset", or "page"
 ```
 
 | Field | Default | Meaning | AI Behavior |
@@ -434,6 +448,11 @@ class ModuleAnnotations:
 | `requires_approval` | `False` | Requires human confirmation before execution. When an `ApprovalHandler` is configured on the Executor, this is enforced at runtime (Step 5). See [Approval System](../features/approval-system.md). | `True` → Seek consent |
 | `open_world` | `True` | Connects to external systems | `True` → May be slow |
 | `streaming` | `False` | Supports streaming chunk-by-chunk output | `True` → Read output incrementally |
+| `cacheable` | `False` | Output can be cached for identical inputs | `True` → Reuse previous results |
+| `cache_ttl` | `0` | Cache duration in seconds (0 = no cache) | Determines how long cached results remain valid |
+| `cache_key_fields` | `None` | Input fields for cache key (None = all fields) | Determines cache hit criteria |
+| `paginated` | `False` | Returns paginated results | `True` → Pass cursor/offset, expect partial results |
+| `pagination_style` | `"cursor"` | `"cursor"`, `"offset"`, or `"page"` pagination | Determines pagination parameter format |
 
 ```python
 # Query module - read-only, safe
@@ -450,6 +469,16 @@ class SendEmailModule(Module):
 class DeleteUserModule(Module):
     """Delete user"""
     annotations = ModuleAnnotations(destructive=True, requires_approval=True, open_world=False)
+
+# Cacheable query with 5-minute TTL
+class GetProductModule(Module):
+    """Get product details"""
+    annotations = ModuleAnnotations(readonly=True, cacheable=True, cache_ttl=300, open_world=False)
+
+# Paginated list endpoint
+class ListOrdersModule(Module):
+    """List user orders"""
+    annotations = ModuleAnnotations(readonly=True, paginated=True, pagination_style="cursor")
 ```
 
 ### 3.5 examples
@@ -526,9 +555,17 @@ class SendEmailModule(Module):
     """Send email"""
 
     metadata = {
-        # Performance hints
-        "cost_per_call": 0.001,
-        "avg_latency_ms": 500,
+        # Performance & cost hints
+        "x-cost-per-call": 0.001,
+        "x-avg-latency-ms": 500,
+
+        # Planning hints
+        "x-preconditions": ["SMTP server must be configured"],
+        "x-postconditions": ["Email queued for delivery"],
+        "x-side-effects": ["Sends email via external SMTP server"],
+
+        # Trust hints
+        "x-output-source": "api",
 
         # Data sensitivity
         "data_sensitivity": ["PII"],
@@ -567,7 +604,46 @@ class DatabaseModule(Module):
         self.connection.close()
 ```
 
-**Lifecycle:**
+### 4.2 on_suspend() / on_resume()
+
+Optional hooks for preserving module state across hot-reload cycles:
+
+```python
+class CounterModule(Module):
+    def on_load(self) -> None:
+        self._count = 0
+        self._cache = {}
+
+    def on_suspend(self) -> dict | None:
+        """Called before hot-reload. Return serializable state to preserve."""
+        return {"count": self._count, "cache": self._cache}
+
+    def on_resume(self, state: dict) -> None:
+        """Called after hot-reload. Restore state from on_suspend()."""
+        self._count = state.get("count", 0)
+        self._cache = state.get("cache", {})
+
+    def on_unload(self) -> None:
+        pass
+```
+
+**Hot-Reload Lifecycle:**
+
+```
+old_instance.on_suspend() → state     ← Export state
+old_instance.on_unload()              ← Cleanup resources
+  (reload module code from disk)
+new_instance.__init__()
+new_instance.on_load()                ← Initialize resources
+new_instance.on_resume(state)         ← Restore state (only if state is not None)
+```
+
+**Constraints:**
+- `on_suspend()` return value **must** be JSON-serializable
+- `on_resume()` **must** tolerate missing or extra keys (version may differ)
+- If either hook raises, the error is logged but does not block the reload process
+
+**Normal Shutdown Lifecycle:**
 
 ```
 Registry.discover()

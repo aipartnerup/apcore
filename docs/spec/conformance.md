@@ -6,7 +6,7 @@
 
 ### 1.1 Purpose
 
-As a cross-language module development framework, apcore needs to ensure behavioral consistency among SDK implementations in various languages. This conformance specification defines three progressive conformance levels, with each level clearly listing **must**, **should**, and **may** implement components, as well as corresponding test requirements.
+As a cross-language AI-Perceivable module standard, apcore needs to ensure behavioral consistency among SDK implementations in various languages. This conformance specification defines three progressive conformance levels, with each level clearly listing **must**, **should**, and **may** implement components, as well as corresponding test requirements.
 
 Implementers can choose their target conformance level based on their needs and verify conformance through the corresponding test suite.
 
@@ -44,7 +44,7 @@ Level 0 defines the minimal viable implementation of apcore. SDKs reaching this 
 | **Basic error handling** | Unified error format (`code`, `message`), framework error codes (MODULE_*, SCHEMA_*, GENERAL_*) | PROTOCOL_SPEC §8.1, §8.2 |
 | **Error propagation** | `propagate_error()` algorithm, module errors wrapped as ModuleError | PROTOCOL_SPEC §8.3 |
 | **Configuration loading** | `apcore.yaml` basic configuration loading and validation | PROTOCOL_SPEC §9.1 |
-| **Schema loading** | YAML Schema file loading and parsing | PROTOCOL_SPEC §4.8 |
+| **Schema loading** | YAML Schema file loading and parsing | PROTOCOL_SPEC §4.9 |
 | **Scanning algorithm** | `scan_extensions()` directory scanning algorithm | PROTOCOL_SPEC §3.6 |
 | **Hidden file filtering** | Ignore hidden files and special directories when scanning | PROTOCOL_SPEC §3.5 |
 | **Function-based module definition** | `module()` mechanism, wraps callable as standard module, auto-generates Schema from type annotations | PROTOCOL_SPEC §5.11 |

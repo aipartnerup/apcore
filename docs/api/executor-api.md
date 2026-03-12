@@ -699,7 +699,7 @@ Implementations **MUST** handle Executor edge cases per the following table:
 
 **Concurrent safety notes:**
 - Executor instance **MUST** be thread-safe, supporting multi-threaded concurrent calls
-- Each `call()` **SHOULD** use independent Context instance (created via `derive()`)
+- Each `call()` **SHOULD** use independent Context instance (created via `child()`)
 - See [PROTOCOL_SPEC §12.7 Concurrency Model Specification](../../PROTOCOL_SPEC.md#127-concurrency-model-specification)
 
 ---

@@ -1,8 +1,8 @@
 # apcore Documentation
 
-> Complete technical documentation for the apcore (AI-Perceivable Core) framework.
+> Complete technical documentation for the apcore (AI-Perceivable Core) standard.
 
-This directory contains all technical documentation for apcore, covering core concepts, architecture design, feature specifications, API references, usage guides, and framework specifications.
+This directory contains all technical documentation for apcore, covering core concepts, architecture design, feature specifications, API references, usage guides, and standard specifications.
 For a project overview and quick start, see the [main README](../README.md).
 For language SDK implementations, see [Implementations](../README.md#implementations).
 

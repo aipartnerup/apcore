@@ -113,7 +113,7 @@ type: boolean
 **Notes:**
 
 - JSON **must** use `true` / `false`, does not accept variants like `0` / `1` / `"true"` / `"false"`
-- If `schema.validation.coerce_types` is `true` (see PROTOCOL_SPEC §4.8), implementations **may** convert `0`/`1` to boolean values
+- If `schema.validation.coerce_types` is `true` (see PROTOCOL_SPEC §4.9), implementations **may** convert `0`/`1` to boolean values
 
 ### 2.5 Null Type (`null`)
 

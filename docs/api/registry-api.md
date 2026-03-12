@@ -903,7 +903,7 @@ Implementations **must** handle Registry edge cases according to the following t
 | Module directory insufficient permissions (no read access) | Log ERROR, skip directory, continue scanning | **MUST** |
 
 **Hot Reload Considerations:**
-- During `unregister()`, module may be executing, see [PROTOCOL_SPEC §11.7.3 Hot Reload Race Conditions](../../PROTOCOL_SPEC.md#1173-hot-reload-race-conditions)
+- During `unregister()`, module may be executing, see [PROTOCOL_SPEC §12.7.4 Hot Reload Race Conditions](../../PROTOCOL_SPEC.md#1274-hot-reload-race-conditions)
 - Safe unloading algorithm see [algorithms.md A21 — safe_unregister()](../spec/algorithms.md#a21-safe_unregister--hot-reload-safe-unloading)
 
 ---

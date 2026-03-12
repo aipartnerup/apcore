@@ -99,6 +99,13 @@
       "default": null,
       "examples": ["executor.validator.db_params_v2"]
     },
+    "sunset_date": {
+      "type": ["string", "null"],
+      "description": "ISO 8601 date after which this module MAY be removed. Executor SHOULD emit a warning event when deprecated modules are called, and MAY reject calls after sunset_date.",
+      "default": null,
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "examples": ["2026-06-01"]
+    },
     "resources": {
       "$ref": "#/$defs/ResourceLimits"
     }
@@ -158,6 +165,41 @@
           "type": "boolean",
           "description": "Whether the module interacts with external systems (APIs, networks, services). true = calls may be slow and depend on external availability.",
           "default": true
+        },
+        "streaming": {
+          "type": "boolean",
+          "description": "Whether the module supports streaming output. true = module can emit partial results progressively.",
+          "default": false
+        },
+        "cacheable": {
+          "type": "boolean",
+          "description": "Whether the module output can be cached. true = identical inputs produce identical outputs within cache_ttl.",
+          "default": false
+        },
+        "cache_ttl": {
+          "type": "integer",
+          "description": "Suggested cache duration in seconds. 0 = no caching. Only meaningful when cacheable=true.",
+          "minimum": 0,
+          "default": 0
+        },
+        "cache_key_fields": {
+          "type": ["array", "null"],
+          "description": "Input fields that determine cache key. null = all input fields are used. Only meaningful when cacheable=true.",
+          "items": {
+            "type": "string"
+          },
+          "default": null
+        },
+        "paginated": {
+          "type": "boolean",
+          "description": "Whether the module returns paginated results. true = accepts pagination parameters and returns partial result sets.",
+          "default": false
+        },
+        "pagination_style": {
+          "type": "string",
+          "description": "Pagination strategy. Only meaningful when paginated=true.",
+          "enum": ["cursor", "offset", "page"],
+          "default": "cursor"
         }
       }
     },

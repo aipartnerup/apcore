@@ -1,4 +1,4 @@
-# apcore — AI-Perceivable Core Framework Specification
+# apcore — AI-Perceivable Core Standard Specification
 
 > **Canonical Specification** - This document is the authoritative specification for the apcore protocol
 
@@ -34,13 +34,13 @@
 
 ### 1.1 Project Positioning
 
-apcore (AI-Perceivable Core) is a **Schema-driven module development framework** that makes every interface naturally perceivable and understandable by AI.
+apcore (AI-Perceivable Core) is a **schema-enforced module standard for the AI-Perceivable era**.
 
 **One-sentence definition**:
-> apcore is a universal module development framework that makes modules both callable by code and perceivable and understandable by AI through enforced Schema definitions.
+> apcore is an AI-Perceivable module standard that makes every interface naturally perceivable and understandable by AI through enforced Schema definitions and behavioral annotations.
 
 **Positioning**:
-- **Universal Development Framework**: Not just an AI framework, but a standard module development framework
+- **AI-Perceivable Module Standard**: Not just an AI framework, but a universal module standard that is naturally AI-Perceivable
 - **Enforced AI-Perceivable**: Schema is mandatory, making modules naturally perceivable and understandable by AI
 - **Complementary to MCP/A2A**: MCP/A2A define communication protocols, apcore defines module construction specifications
 - Foundation for other projects (such as apflow)
@@ -53,7 +53,7 @@ apcore (AI-Perceivable Core) is a **Schema-driven module development framework**
 | **Three-layer Metadata** | Core (enforced Schema) + Annotations (behavior Annotations) + Extensions (free metadata) |
 | **Directory as ID** | Directory path automatically maps to module ID, zero manual configuration |
 | **AI-Perceivable** | Schema + Annotations enable AI/LLM to perceive and understand modules, this is a design requirement |
-| **Universal Framework** | Modules can be called by code/AI/HTTP/CLI in any manner |
+| **Universal Standard** | Modules can be called by code/AI/HTTP/CLI in any manner |
 
 ### 1.3 Design Goals
 
@@ -766,6 +766,34 @@ annotations:
       type: boolean
       default: false
       description: "Whether module supports streaming output. true means module can emit partial results progressively."
+
+    cacheable:
+      type: boolean
+      default: false
+      description: "Whether the module output can be cached. true means identical inputs produce identical outputs within cache_ttl."
+
+    cache_ttl:
+      type: integer
+      default: 0
+      description: "Suggested cache duration in seconds. 0 means no caching. Only meaningful when cacheable=true."
+
+    cache_key_fields:
+      type: array
+      items:
+        type: string
+      default: null
+      description: "Input fields that determine cache key. null means all input fields are used. Only meaningful when cacheable=true."
+
+    paginated:
+      type: boolean
+      default: false
+      description: "Whether the module returns paginated results. true means the module accepts pagination parameters (cursor/offset) and returns partial result sets."
+
+    pagination_style:
+      type: string
+      enum: [cursor, offset, page]
+      default: cursor
+      description: "Pagination strategy. 'cursor' = opaque continuation token; 'offset' = numeric offset+limit; 'page' = page-number-based pagination. Only meaningful when paginated=true."
 ```
 
 **Annotations Design Principles:**
@@ -786,6 +814,8 @@ idempotent=true       → AI can safely retry failed calls
 requires_approval=true → AI must seek user consent; Executor enforces via ApprovalHandler (§7)
 open_world=true       → AI knows this call involves external systems, may be slow
 streaming=true        → AI knows this module emits partial results progressively
+cacheable=true        → AI knows it can reuse previous results within cache_ttl
+paginated=true        → AI knows to pass pagination params and expect partial results
 ```
 
 ### 4.5 Module Usage Examples (Examples)
@@ -886,9 +916,11 @@ metadata:
   billing_category: "communication"
 ```
 
-**Recommended AI Intent Metadata Keys:**
+**Recommended AI Metadata Conventions:**
 
-When modules are consumed by AI agents, the following metadata keys help agents understand when and how to use a module. These are conventions, not enforced by the framework.
+When modules are consumed by AI agents, the following metadata keys help agents understand when, how, and at what cost to use a module. These are conventions, not enforced by the framework.
+
+**Intent Hints** — Help agents decide whether to use this module:
 
 ```yaml
 metadata:
@@ -899,12 +931,66 @@ metadata:
   x-workflow-hints: "Call validate-email module first to verify recipient address exists"
 ```
 
-| Key | Purpose |
-|-----|---------|
-| `x-when-to-use` | Positive guidance: scenarios where this module is the right choice |
-| `x-when-not-to-use` | Negative guidance: scenarios where a different module should be used |
-| `x-common-mistakes` | Known pitfalls that AI agents (and humans) frequently encounter |
-| `x-workflow-hints` | Suggested pre/post steps or related modules in a typical workflow |
+**Planning Hints** — Help agents build multi-step plans:
+
+```yaml
+metadata:
+  # Preconditions: what must be true before calling this module
+  x-preconditions:
+    - "User must be authenticated"
+    - "module.validate_card must have succeeded"
+
+  # Postconditions: what will be true after calling this module
+  x-postconditions:
+    - "Payment record created in database"
+    - "Confirmation email queued"
+
+  # Side effects: external state changes caused by this module
+  x-side-effects:
+    - "Charges credit card via Stripe API"
+    - "Writes to orders table"
+```
+
+**Performance & Cost Hints** — Help agents make cost-aware decisions:
+
+```yaml
+metadata:
+  # Cost estimation (units are implementation-defined, e.g., USD)
+  x-cost-per-call: 0.001
+  x-avg-latency-ms: 500
+  x-max-latency-ms: 5000
+
+  # SLA targets (for monitoring; enforcement is an ecosystem concern)
+  x-sla:
+    availability: 0.999
+    p95_latency_ms: 500
+```
+
+**Trust & Verification Hints** — Help agents assess output reliability:
+
+```yaml
+metadata:
+  # Output source: where does the data come from?
+  x-output-source: "database"    # database | api | generated | cached | computed
+  # Verification hint: how to cross-check the output
+  x-verification-hint: "Cross-check amounts with accounting.get_balance"
+```
+
+| Key | Category | Purpose |
+|-----|----------|---------|
+| `x-when-to-use` | Intent | Positive guidance: scenarios where this module is the right choice |
+| `x-when-not-to-use` | Intent | Negative guidance: scenarios where a different module should be used |
+| `x-common-mistakes` | Intent | Known pitfalls that AI agents (and humans) frequently encounter |
+| `x-workflow-hints` | Intent | Suggested pre/post steps or related modules in a typical workflow |
+| `x-preconditions` | Planning | What must be true before calling this module |
+| `x-postconditions` | Planning | What will be true after successful execution |
+| `x-side-effects` | Planning | External state changes caused by this module |
+| `x-cost-per-call` | Performance | Estimated cost per invocation |
+| `x-avg-latency-ms` | Performance | Average execution latency in milliseconds |
+| `x-max-latency-ms` | Performance | Maximum expected latency in milliseconds |
+| `x-sla` | Performance | SLA targets (availability, latency percentiles) |
+| `x-output-source` | Trust | Data provenance: database, api, generated, cached, computed |
+| `x-verification-hint` | Trust | How to cross-check the output for correctness |
 
 **Metadata Design Principles:**
 
@@ -1648,6 +1734,7 @@ metadata:
 deprecated: false
 deprecated_message: null
 replacement: null
+sunset_date: null                    # ISO 8601 date after which module MAY be removed (e.g., "2026-06-01")
 
 # Resource limits (optional, for sandbox isolation)
 resources:
@@ -1833,6 +1920,12 @@ Interface: Module
     validate(inputs: Map<String, Any>) → ValidationResult
     on_load() → void
     on_unload() → void
+    on_suspend() → Map<String, Any>?
+      # Called before hot-reload. Returns serializable state to preserve.
+      # Returns null if no state needs preservation.
+    on_resume(state: Map<String, Any>) → void
+      # Called after hot-reload. Restores state from on_suspend().
+      # Only called if on_suspend() returned non-null state.
 
   Required definitions:
     input_schema: SchemaDefinition    // Input Schema
@@ -1925,6 +2018,12 @@ module_interface:
       description: "Called when module loads"
     - name: "on_unload"
       description: "Called when module unloads"
+    - name: "on_suspend"
+      description: "Called before hot-reload to export serializable state"
+      return: "dict | null — serializable state to preserve, or null"
+    - name: "on_resume"
+      description: "Called after hot-reload to restore previously exported state"
+      input: "state: dict — state returned by on_suspend() of the previous instance"
 ```
 
 ### 5.7 Context Parameter Specification
@@ -2650,7 +2749,7 @@ Implementations **must** handle module edge cases according to the following tab
 | Module called before load completion | Wait for load completion or throw `MODULE_NOT_FOUND` | **SHOULD** |
 | Module called after unload | Throw `MODULE_NOT_FOUND` | **MUST** |
 | Repeated `discover()` of same module | If `metadata.yaml` unchanged, skip (idempotent) | **MUST** |
-| Hot reload while module executing | See §12.7.3 Hot Reload Race Conditions | **MUST** |
+| Hot reload while module executing | See §12.7.4 Hot Reload Race Conditions | **MUST** |
 
 **Note**:
 - Dependency topological sorting uses algorithm A07 (§5.3)
@@ -4275,7 +4374,7 @@ Implementations **must** handle middleware edge cases according to the following
 
 **Note**:
 - Timeout timer should start at first `before()` call
-- Timeout enforcement algorithm see §12.7.4 and algorithms.md A22
+- Timeout enforcement algorithm see §12.7.5 and algorithms.md A22
 
 ---
 
@@ -4731,7 +4830,9 @@ class CounterModule:
 | `__init__()` | 1 time | Single-thread | Instance creation |
 | `on_load()` | 1 time | Single-thread | Module initialization |
 | `execute()` | 0..N times | **Multi-thread** | Business logic |
+| `on_suspend()` | 0..1 time | Single-thread | Export state before hot-reload |
 | `on_unload()` | 0..1 time | Single-thread | Resource cleanup |
+| `on_resume()` | 0..1 time | Single-thread | Restore state after hot-reload |
 
 #### 12.7.2 Context.data Sharing Semantics
 
@@ -4771,7 +4872,51 @@ print(context.data["key"])  # Reads "value" (reference sharing)
 - If `context.data` might be accessed by multiple threads (e.g., async middleware), **should** use thread-safe Map implementation
 - Python's `dict` is partially thread-safe in CPython (GIL protected), but **should** avoid relying on implementation details
 
-#### 12.7.3 Hot Reload Race Conditions
+#### 12.7.3 Hot Reload with State Migration
+
+**State Migration Hooks (MAY)**:
+
+Modules that hold in-memory state (counters, caches, connection pools) can implement `on_suspend()` / `on_resume()` to preserve state across hot-reload cycles:
+
+```
+Hot-Reload Sequence:
+  1. old_instance.on_suspend() → state (dict or null)
+  2. old_instance.on_unload()
+  3. (reload module code from disk)
+  4. new_instance.__init__()
+  5. new_instance.on_load()
+  6. If state is not null: new_instance.on_resume(state)
+```
+
+**Constraints:**
+- `on_suspend()` return value **must** be JSON-serializable (no functions, connections, file handles)
+- `on_resume()` **must** tolerate missing or extra keys (new version may have different state shape)
+- If `on_suspend()` raises, log ERROR and proceed with unload (state is lost)
+- If `on_resume()` raises, log ERROR and continue (module starts with fresh state)
+- Framework **must not** call `on_resume()` if `on_suspend()` returned null or was not implemented
+
+```python
+# Example: Counter module with state preservation
+class CounterModule(Module):
+    def on_load(self):
+        self._count = 0
+        self._cache = {}
+
+    def on_suspend(self) -> dict | None:
+        """Export state before hot-reload"""
+        return {"count": self._count, "cache": self._cache}
+
+    def on_resume(self, state: dict) -> None:
+        """Restore state after hot-reload"""
+        self._count = state.get("count", 0)
+        self._cache = state.get("cache", {})
+
+    def execute(self, inputs, context):
+        self._count += 1
+        return {"count": self._count}
+```
+
+#### 12.7.4 Hot Reload Race Conditions
 
 **Problem**: During `unregister()`, module might be executing in other threads.
 
@@ -4786,12 +4931,13 @@ Steps:
   3. Wait for all executing calls to complete:
      - Maintain reference count (number of executing calls)
      - Block until count reaches zero or timeout (default 30 seconds)
-  4. Call on_unload() hook
-  5. Release module instance
+  4. Call on_suspend() hook (if implemented) → save returned state
+  5. Call on_unload() hook
+  6. Release module instance
 
 Return:
-  - If successfully unloaded → true
-  - If timeout → Log ERROR, force unload, return false
+  - If successfully unloaded → true, state (dict or null)
+  - If timeout → Log ERROR, force unload, return false, null
 ```
 
 **For detailed algorithm see algorithms.md A21 — safe_unregister()**
@@ -4805,7 +4951,7 @@ Return:
 | `unregister()` | `unregister()` same ID | Idempotent, succeed silently | **MUST** |
 | `get()` | `unregister()` | If get executes first, return instance; if unregister executes first, throw `MODULE_NOT_FOUND` | **SHOULD** |
 
-#### 12.7.4 Timeout Enforcement
+#### 12.7.5 Timeout Enforcement
 
 **Cooperative Cancellation (SHOULD)**:
 
@@ -4850,7 +4996,7 @@ Return:
 | ACL check timeout | ACL rule evaluation | 1000ms | Separate timing |
 | Schema validation timeout | Input/output validation | Included in global timeout | Not separately timed |
 
-#### 12.7.5 Middleware Chain Atomicity
+#### 12.7.6 Middleware Chain Atomicity
 
 **Call-level Isolation (MUST)**:
 
@@ -4879,7 +5025,7 @@ Thread 2:                      before1 → ...
 - Middleware **should** store call-level state through `context.data` (e.g., request ID, timer)
 - **Must not** use middleware instance variables to store call-level state (causes race conditions)
 
-#### 12.7.6 Sync/Async Mixing
+#### 12.7.7 Sync/Async Mixing
 
 **Bridging Strategy (MUST)**:
 
@@ -4907,7 +5053,7 @@ Implementations **must** support mixed calls of sync and async modules, bridging
 - Sync→Async bridging blocks caller thread, **should** avoid frequent use in async contexts
 - Async→Sync bridging needs thread pool, **should** configure reasonable thread pool size (default CPU cores × 2)
 
-#### 12.7.7 Resource Cleanup Guarantees
+#### 12.7.8 Resource Cleanup Guarantees
 
 Implementations **must** guarantee resource cleanup according to this table:
 

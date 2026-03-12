@@ -5,9 +5,10 @@
 # apcore — AI-Perceivable Core
 
 > **Build once, invoke by Code or AI.**
-> A schema-enforced module framework that defines the "Cognitive Interface" for the AI era.
 
-apcore is a **universal module development framework** that makes every interface naturally perceivable and understandable by AI through enforced Schema definitions and behavioral annotations.
+A schema-enforced module standard for the AI-Perceivable era.
+
+apcore is an **AI-Perceivable module standard** that makes every interface naturally perceivable and understandable by AI through enforced Schema definitions and behavioral annotations.
 
 **apcore is a protocol specification.** Language implementations are maintained in separate repositories — see [Implementations](#implementations).
 
@@ -51,13 +52,13 @@ apcore is a **universal module development framework** that makes every interfac
 
 ## What is apcore?
 
-apcore is a **universal module development framework** that makes every module naturally perceivable and understandable by AI through enforced Schema definitions.
+apcore is an **AI-Perceivable module standard** that makes every module naturally perceivable and understandable by AI through enforced Schema definitions.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                apcore — AI-Perceivable Core                 │
 │                                                             │
-│  Universal framework + Enforced AI-Perceivable support     │
+│  AI-Perceivable module standard + Enforced Schema          │
 │  - Directory as ID (zero-config module discovery)          │
 │  - Schema-driven (input/output mandatory)                  │
 │  - ACL / Observability / Middleware                        │
@@ -69,7 +70,7 @@ apcore is a **universal module development framework** that makes every module n
    (import)  (understands) (REST)    (terminal)  (Claude)
 ```
 
-**Not just an AI framework, but a universal framework that is naturally AI-Perceivable.**
+**Not just an AI framework, but a module standard that is naturally AI-Perceivable.**
 
 ### The Concept: Cognitive Interface
 
@@ -106,7 +107,7 @@ AI has become an important caller in software systems, but most modules lack AI-
 
 ### One-Sentence Summary
 
-> apcore solves **how to build modules** (development framework), not how to call tools (communication protocol).
+> apcore solves **how to build modules** (module standard), not how to call tools (communication protocol).
 > Once modules are built, they can be called by code / AI / HTTP / CLI / MCP or any other means.
 
 ---
@@ -149,7 +150,7 @@ Result: Modules understandable by both humans and AI, no extra cost
 | **Schema-Driven** | All modules enforce `input_schema` / `output_schema` / `description` |
 | **Directory as ID** | Directory path auto-maps to module ID, zero config |
 | **AI-Perceivable** | Schema enables AI/LLM perception and understanding—a design requirement, not optional |
-| **Universal Framework** | Modules callable by code/AI/HTTP/CLI or any other means |
+| **Universal Standard** | Modules callable by code/AI/HTTP/CLI or any other means |
 | **Progressive Integration** | Existing code gains AI-Perceivable capability via decorators, function calls, or YAML binding |
 | **Cross-Language Spec** | Language-agnostic protocol specification, any language can implement conformant SDK |
 
@@ -172,7 +173,7 @@ apcore's architecture consists of two orthogonal dimensions: **Framework Technic
 
 ### Framework Technical Architecture (Vertical)
 
-The technical layers of the framework itself, defining the complete flow from module registration to execution:
+The technical layers of the standard itself, defining the complete flow from module registration to execution:
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -575,6 +576,11 @@ Annotations describe module **behavior characteristics**, helping AI make safer 
 | `requires_approval` | bool | Requires explicit user consent | AI must wait for human approval (enforced by Executor) |
 | `open_world` | bool | Connects to external systems | AI should inform user of external interaction |
 | `streaming` | bool | Supports streaming execution | AI can use streaming response mode |
+| `cacheable` | bool | Output can be cached | AI can reuse previous results within `cache_ttl` |
+| `cache_ttl` | int | Cache duration in seconds | AI knows how long cached results remain valid |
+| `paginated` | bool | Returns paginated results | AI knows to pass cursor/offset and expect partial results |
+| `cache_key_fields` | list[str] | Input fields used as cache key | AI knows which inputs affect caching |
+| `pagination_style` | str | Pagination style: `cursor`, `offset`, or `page` | AI knows which pagination parameters to use |
 
 ```python
 # Read-only query - AI can call autonomously
@@ -585,6 +591,12 @@ annotations = ModuleAnnotations(destructive=True, requires_approval=True)
 
 # External API call - AI needs to inform user
 annotations = ModuleAnnotations(open_world=True, idempotent=True)
+
+# Cacheable query with 5-minute TTL
+annotations = ModuleAnnotations(readonly=True, cacheable=True, cache_ttl=300)
+
+# Paginated list endpoint
+annotations = ModuleAnnotations(readonly=True, paginated=True, pagination_style="cursor")
 ```
 
 ### LLM Extension Fields
@@ -601,9 +613,11 @@ Fields with `x-` prefix in Schema are LLM-specific extensions, don't affect stan
 
 > Complete usage and examples: see [Schema Definition Guide](./docs/guides/schema-definition.md) | [Protocol Specification §4.3](./PROTOCOL_SPEC.md#43-llm-extension-fields).
 
-### AI Intent Metadata
+### AI Metadata Conventions
 
-In the extension layer (`metadata` dictionary), you can provide optional AI intent hints to help agents understand *when* and *how* to use the module. These are conventions, not enforced by the framework.
+In the extension layer (`metadata` dictionary), you can provide optional AI metadata to help agents understand *when*, *how*, and *at what cost* to use the module. These are conventions, not enforced by the framework.
+
+**Intent & Planning:**
 
 | Key | Purpose |
 |-----|---------|
@@ -611,6 +625,20 @@ In the extension layer (`metadata` dictionary), you can provide optional AI inte
 | `x-when-not-to-use` | Negative guidance: scenarios where a different module should be used |
 | `x-common-mistakes` | Known pitfalls that AI agents frequently encounter |
 | `x-workflow-hints` | Suggested pre/post steps or related modules in a typical workflow |
+| `x-preconditions` | What must be true before calling (e.g., "User must be authenticated") |
+| `x-postconditions` | What will be true after successful execution |
+| `x-side-effects` | External state changes caused by this module |
+
+**Performance, Cost & Trust:**
+
+| Key | Purpose |
+|-----|---------|
+| `x-cost-per-call` | Estimated cost per invocation |
+| `x-avg-latency-ms` | Average execution latency in milliseconds |
+| `x-max-latency-ms` | Maximum expected latency in milliseconds |
+| `x-sla` | SLA targets (availability, latency percentiles) |
+| `x-output-source` | Data provenance: `database`, `api`, `generated`, `cached`, `computed` |
+| `x-verification-hint` | How to cross-check the output for correctness |
 
 > Detailed usage: see [Protocol Specification §4.6](./PROTOCOL_SPEC.md#46-module-extension-metadata-metadata).
 
@@ -750,7 +778,7 @@ Typical middleware scenarios: logging, performance monitoring, caching, rate lim
 
 ## Configuration
 
-The framework is centrally configured through `apcore.yaml`:
+The runtime is centrally configured through `apcore.yaml`:
 
 ```yaml
 # apcore.yaml
@@ -881,7 +909,7 @@ apcore defines a unified error format including **`ai_guidance`**. While standar
 
 ## Cross-Language Support
 
-apcore is a **language-agnostic framework specification**. Canonical IDs are automatically adapted to local naming conventions in different languages:
+apcore is a **language-agnostic module standard**. Canonical IDs are automatically adapted to local naming conventions in different languages:
 
 ```
 Canonical ID (universal): executor.email.send_email
@@ -909,7 +937,7 @@ Any language SDK implementation can choose different conformance levels:
 |------|------|------|
 | **Level 0 (Core)** | Minimally viable | ID mapping, Schema loading, Registry, Executor |
 | **Level 1 (Standard)** | Production ready | + ACL, middleware, error handling, observability |
-| **Level 2 (Full)** | Complete implementation | + Extension point framework, async task management, W3C Trace Context, Prometheus metrics, version negotiation, schema migration, module isolation, multi-version coexistence |
+| **Level 2 (Full)** | Complete implementation | + Extension point system, async task management, W3C Trace Context, Prometheus metrics, version negotiation, schema migration, module isolation, multi-version coexistence |
 
 **Reference Implementation**: [apcore-python](https://github.com/aipartnerup/apcore-python)
 
@@ -921,7 +949,7 @@ Any language SDK implementation can choose different conformance levels:
 
 | | apcore | MCP |
 |---|--------|-----|
-| **Positioning** | Development framework | Communication protocol |
+| **Positioning** | Module standard | Communication protocol |
 | **Solves** | How to **build** modules | How to **call** tools |
 | **Focus** | Code organization, Schema, ACL, observability | Transport format, RPC |
 | **Relationship** | apcore modules can be exposed as MCP Server | MCP is one exposure method |
@@ -930,7 +958,7 @@ Any language SDK implementation can choose different conformance levels:
 
 | | apcore | LangChain etc. |
 |---|--------|-------------|
-| **Positioning** | Module development framework | LLM application development framework |
+| **Positioning** | AI-Perceivable module standard | LLM application development framework |
 | **Focus** | Module standardization, Schema, permissions | Chaining, Prompt, RAG |
 | **Relationship** | Complementary — apcore modules can serve as LangChain Tools | |
 
@@ -938,7 +966,7 @@ Any language SDK implementation can choose different conformance levels:
 
 | | apcore | CrewAI etc. |
 |---|--------|----------|
-| **Positioning** | Module development framework | Agent orchestration framework |
+| **Positioning** | AI-Perceivable module standard | Agent orchestration framework |
 | **Focus** | Standardizing individual modules | Multi-agent collaboration strategies |
 | **Relationship** | Complementary — Agents can call apcore modules | |
 
@@ -963,12 +991,57 @@ Language SDK implementations of the apcore protocol specification:
 
 The apcore ecosystem uses a **core + independent adapters** architecture. The core does not include any framework-specific implementations; adapters are developed in independent repositories by official or community contributors.
 
-### Adapter Types
+```
+                        apcore (Protocol Spec)
+                               │
+              ┌────────────────┼────────────────┐
+              ▼                ▼                 ▼
+       apcore-python    apcore-typescript    (future SDKs)
+              │                │
+              └───────┬────────┘
+                      │
+        ┌─────────────┼─────────────┐
+        ▼             ▼             ▼
+   apcore-mcp    apcore-a2a   apcore-testing
+  (MCP Server)  (A2A Agent)  (Test Framework)
+```
+
+### Official AI Protocol Adapters
+
+| Adapter | Description | Python | TypeScript | Install |
+|---------|-------------|--------|------------|---------|
+| **[apcore-mcp](https://github.com/aipartnerup/apcore-mcp)** | Expose apcore modules as MCP Server — auto-discovery, annotation mapping, Tool Explorer UI | [apcore-mcp-python](https://github.com/aipartnerup/apcore-mcp-python) | [apcore-mcp-typescript](https://github.com/aipartnerup/apcore-mcp-typescript) | `pip install apcore-mcp` / `npm install apcore-mcp` |
+| **[apcore-a2a](https://github.com/aipartnerup/apcore-a2a)** | Expose apcore modules as A2A Agent — auto Agent Card, skill mapping, streaming, push notifications | [apcore-a2a-python](https://github.com/aipartnerup/apcore-a2a-python) | [apcore-a2a-typescript](https://github.com/aipartnerup/apcore-a2a-typescript) | `pip install apcore-a2a` / `npm install apcore-a2a` |
+
+**One module definition, two protocol endpoints:**
+
+```python
+# Define once with apcore
+@module(id="email.send", description="Send email")
+def send_email(to: str, subject: str, body: str) -> dict:
+    return {"success": True}
+
+# Expose as MCP Server (for Claude, Cursor, etc.)
+from apcore_mcp import serve as mcp_serve
+mcp_serve(registry)
+
+# Expose as A2A Agent (for agent-to-agent communication)
+from apcore_a2a import serve as a2a_serve
+a2a_serve(registry)
+```
+
+### Developer Tooling
+
+| Project | Description | Install |
+|---------|-------------|---------|
+| **[apcore-testing](https://github.com/aipartnerup/apcore-testing)** | Testing framework — MockModule, ContractTest, record/replay, conformance fixtures | `pip install apcore-testing` / `npm install apcore-testing` |
+
+### Community Adapter Types
 
 | Type | Examples | Description |
 |------|------|------|
 | **Web Frameworks** | `nestjs-apcore`, `flask-apcore`, `express-apcore` | Expose modules as HTTP APIs |
-| **AI Protocols** | `apcore-mcp`, `apcore-openai-tools` | Expose modules as AI tools |
+| **AI Protocols** | `apcore-openai-tools` | Expose modules as OpenAI-compatible tools |
 | **RPC** | `apcore-grpc`, `apcore-thrift` | Expose modules as RPC services |
 
 All adapters are built on the core's `module()` and External Binding mechanisms.
@@ -982,7 +1055,7 @@ Development guide: see [Adapter Development Guide](./docs/guides/adapter-develop
 
 | Document | Description |
 |------|------|
-| [Protocol Specification](./PROTOCOL_SPEC.md) | Complete framework specification (RFC 2119 Conformant) |
+| [Protocol Specification](./PROTOCOL_SPEC.md) | Complete standard specification (RFC 2119 Conformant) |
 | [Scope Definition](./SCOPE.md) | Responsibility boundaries (what's in/out of scope) |
 
 ### Concepts & Architecture
