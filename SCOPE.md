@@ -37,36 +37,36 @@ But: A universal module standard that is naturally AI-Perceivable
 
 ### 2.1 Module Standardization
 - [ ] **Definition (MUST)**: All modules **must** define ID, input_schema, output_schema, and description
-- [ ] **Discovery (MUST)**: The framework **must** support automatic module discovery based on directory scanning
-- [ ] **Loading (SHOULD)**: The framework **should** support lazy loading and dependency injection
-- [ ] **Invocation (MUST)**: The framework **must** automatically perform input validation, output validation, and error handling upon invocation
+- [ ] **Discovery (MUST)**: Implementations **must** support automatic module discovery based on directory scanning
+- [ ] **Loading (SHOULD)**: Implementations **should** support lazy loading and dependency injection
+- [ ] **Invocation (MUST)**: Implementations **must** automatically perform input validation, output validation, and error handling upon invocation
 
 ### 2.2 Schema System
 - [ ] **Definition (MUST)**: All modules **must** define input_schema / output_schema, based on JSON Schema Draft 2020-12
-- [ ] **Validation (MUST)**: The framework **must** perform Schema validation on input and output at runtime
-- [ ] **Conversion (SHOULD)**: The framework **should** support conversion from YAML Schema to language-native types
+- [ ] **Validation (MUST)**: Implementations **must** perform Schema validation on input and output at runtime
+- [ ] **Conversion (SHOULD)**: Implementations **should** support conversion from YAML Schema to language-native types
 
 ### 2.3 Naming and Addressing
 - [ ] **Directory as ID (MUST)**: The directory path **must** serve as the single source of truth for the module ID
-- [ ] **ID Map (SHOULD)**: The framework **should** provide automatic cross-language ID conversion, and **may** allow overrides via YAML configuration
+- [ ] **ID Map (SHOULD)**: Implementations **should** provide automatic cross-language ID conversion, and **may** allow overrides via YAML configuration
 
 ### 2.4 Access Control
-- [ ] **ACL (MUST)**: The framework **must** provide an inter-module invocation access control mechanism
-- [ ] **Audit (SHOULD)**: The framework **should** support invocation audit logs
+- [ ] **ACL (MUST)**: Implementations **must** provide an inter-module invocation access control mechanism
+- [ ] **Audit (SHOULD)**: Implementations **should** support invocation audit logs
 
 ### 2.5 Observability
 - [ ] **Tracing (MUST)**: trace_id **must** be propagated throughout the call chain
-- [ ] **Logging (SHOULD)**: The framework **should** provide structured logging support
-- [ ] **Metrics (MAY)**: The framework **may** collect metrics such as invocation count, latency, etc.
+- [ ] **Logging (SHOULD)**: Implementations **should** provide structured logging support
+- [ ] **Metrics (MAY)**: Implementations **may** collect metrics such as invocation count, latency, etc.
 
 ### 2.6 Extension Mechanism
-- [ ] **Middleware (MUST)**: The framework **must** provide before/after/on_error middleware hooks
-- [ ] **Extension Points (SHOULD)**: The framework **should** provide replaceable extension points such as loaders, executors, etc.
+- [ ] **Middleware (MUST)**: Implementations **must** provide before/after/on_error middleware hooks
+- [ ] **Extension Points (SHOULD)**: Implementations **should** provide replaceable extension points such as loaders, executors, etc.
 
 ### 2.7 Existing Application Integration
-- [ ] **`module()` Registration (MUST)**: The framework **must** provide a `module()` mechanism to wrap existing callables (functions or methods) as standard modules; languages that support Decorator syntax should provide it in Decorator form, while languages that don't should provide it as a function call
-- [ ] **External Schema Binding (MUST)**: The framework **must** support YAML binding files to map existing functions as modules with zero code modification
-- [ ] **Type Inference (MUST)**: The framework **must** support automatic JSON Schema generation from language-native type information
+- [ ] **`module()` Registration (MUST)**: Implementations **must** provide a `module()` mechanism to wrap existing callables (functions or methods) as standard modules; languages that support Decorator syntax should provide it in Decorator form, while languages that don't should provide it as a function call
+- [ ] **External Schema Binding (MUST)**: The standard **must** support YAML binding files to map existing functions as modules with zero code modification
+- [ ] **Type Inference (MUST)**: Implementations **must** support automatic JSON Schema generation from language-native type information
 
 ---
 
@@ -237,5 +237,5 @@ apcore/
     ├── api/                  # API reference
     ├── features/             # Feature specifications
     ├── guides/               # Usage guides
-    └── spec/                 # Framework specification
+    └── spec/                 # Standard specification
 ```
