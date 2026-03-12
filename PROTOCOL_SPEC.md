@@ -4829,10 +4829,14 @@ class CounterModule:
 |------|---------|--------|------|
 | `__init__()` | 1 time | Single-thread | Instance creation |
 | `on_load()` | 1 time | Single-thread | Module initialization |
+| `on_resume(state)` | 0..1 time | Single-thread | Restore state from previous instance (hot-reload only) |
 | `execute()` | 0..N times | **Multi-thread** | Business logic |
 | `on_suspend()` | 0..1 time | Single-thread | Export state before hot-reload |
 | `on_unload()` | 0..1 time | Single-thread | Resource cleanup |
-| `on_resume()` | 0..1 time | Single-thread | Restore state after hot-reload |
+
+> **Note:** During hot-reload, `on_suspend()` and `on_unload()` run on the **old** instance;
+> `on_resume(state)` runs on the **new** instance after its `on_load()`.
+> Full sequence: `old.on_suspend() → old.on_unload() → new.__init__() → new.on_load() → new.on_resume(state)`.
 
 #### 12.7.2 Context.data Sharing Semantics
 

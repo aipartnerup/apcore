@@ -142,7 +142,7 @@ class Context:
 - `data` is shared by reference, callers **SHOULD** manage synchronization themselves in concurrent scenarios
 - `executor` reference **MUST** be thread-safe
 
-See [PROTOCOL_SPEC §11.7.2 Context.data Sharing Semantics](../../PROTOCOL_SPEC.md#1172-contextdata-sharing-semantics) for the complete concurrency model specification.
+See [PROTOCOL_SPEC §12.7.2 Context.data Sharing Semantics](../../PROTOCOL_SPEC.md#1272-contextdata-sharing-semantics) for the complete concurrency model specification.
 
 ---
 
@@ -744,7 +744,7 @@ Implementations **MUST** handle Context edge cases per the following table:
 **Best practices:**
 - Avoid storing large objects (> 1MB) in `context.data`, use external cache instead
 - Use namespace prefixes to avoid key conflicts (e.g., `my_module:result`)
-- See [PROTOCOL_SPEC §11.7.2 Context.data Sharing Semantics](../../PROTOCOL_SPEC.md#1172-contextdata-sharing-semantics) for details
+- See [PROTOCOL_SPEC §12.7.2 Context.data Sharing Semantics](../../PROTOCOL_SPEC.md#1272-contextdata-sharing-semantics) for details
 
 ---
 

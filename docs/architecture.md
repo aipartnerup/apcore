@@ -792,7 +792,7 @@ executor.call("module_c", {}, context2)
 - If `context.data` may be accessed by multiple threads, use thread-safe Map implementation
 - Python's `dict` is partially thread-safe in CPython (GIL), but shouldn't rely on it
 
-See [PROTOCOL_SPEC §11.7.2 Context.data Sharing Semantics](../PROTOCOL_SPEC.md#1172-contextdata-sharing-semantics)
+See [PROTOCOL_SPEC §12.7.2 Context.data Sharing Semantics](../PROTOCOL_SPEC.md#1272-contextdata-sharing-semantics)
 
 ### 8.3 Memory Considerations
 
