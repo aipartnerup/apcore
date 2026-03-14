@@ -22,7 +22,7 @@ apcore is an **AI-Perceivable module standard** that makes every interface natur
 |-----|----------|---------|------------|
 | **apcore** | Python | `pip install apcore` | [github.com/aipartnerup/apcore-python](https://github.com/aipartnerup/apcore-python) |
 | **apcore-js** | TypeScript | `npm install apcore-js` | [github.com/aipartnerup/apcore-typescript](https://github.com/aipartnerup/apcore-typescript) |
-| **apcore-rs** | Rust | `cargo add apcore` | [github.com/aipartnerup/apcore-rust](https://github.com/aipartnerup/apcore-rust) |
+| **apcore** | Rust | `cargo add apcore` | [github.com/aipartnerup/apcore-rust](https://github.com/aipartnerup/apcore-rust) |
 
 ---
 
