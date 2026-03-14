@@ -4,6 +4,11 @@
 
 # apcore — AI-Perceivable Core
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)](https://github.com/aipartnerup/apcore-python)
+[![TypeScript Version](https://img.shields.io/badge/TypeScript-Node_18%2B-blue)](https://github.com/aipartnerup/apcore-typescript)
+
+
 > **Build once, invoke by Code or AI.**
 
 A schema-enforced module standard for the AI-Perceivable era.
